@@ -1,0 +1,1565 @@
+{
+  "artists": [
+    {
+      "name": "周杰伦",
+      "image": "artist-0.jpg",
+      "subtitle": "Jay Chou · 华语流行"
+    },
+    {
+      "name": "孙燕姿",
+      "image": "artist-1.jpg",
+      "subtitle": "Stefanie Sun · 华语流行"
+    },
+    {
+      "name": "The Weeknd",
+      "image": "artist-2.jpg",
+      "subtitle": "R&B / Soul"
+    },
+    {
+      "name": "Charlie Puth",
+      "image": "artist-3.jpg",
+      "subtitle": "Pop · Singer-songwriter"
+    },
+    {
+      "name": "王菲",
+      "image": "artist-4.jpg",
+      "subtitle": "Faye Wong · 华语流行"
+    },
+    {
+      "name": "陈奕迅",
+      "image": "artist-5.jpg",
+      "subtitle": "Eason Chan · 粤语流行"
+    }
+  ],
+  "albums": [
+    {
+      "name": "七里香",
+      "artist": "周杰伦",
+      "year": "2004",
+      "date": "2004年8月3日",
+      "genre": "華語流行樂",
+      "cover": "album-0-0.jpg",
+      "tracks": [
+        {
+          "id": 536115194,
+          "mid": "demo-536115194",
+          "mediaMid": "demo-536115194",
+          "title": "我的地盤",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 243,
+          "vip": false
+        },
+        {
+          "id": 536115195,
+          "mid": "demo-536115195",
+          "mediaMid": "demo-536115195",
+          "title": "七里香",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 297,
+          "vip": false
+        },
+        {
+          "id": 536115196,
+          "mid": "demo-536115196",
+          "mediaMid": "demo-536115196",
+          "title": "藉口",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 258,
+          "vip": false
+        },
+        {
+          "id": 536115197,
+          "mid": "demo-536115197",
+          "mediaMid": "demo-536115197",
+          "title": "外婆",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 243,
+          "vip": false
+        },
+        {
+          "id": 536115198,
+          "mid": "demo-536115198",
+          "mediaMid": "demo-536115198",
+          "title": "將軍",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 202,
+          "vip": false
+        },
+        {
+          "id": 536115199,
+          "mid": "demo-536115199",
+          "mediaMid": "demo-536115199",
+          "title": "擱淺",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 238,
+          "vip": false
+        },
+        {
+          "id": 536115200,
+          "mid": "demo-536115200",
+          "mediaMid": "demo-536115200",
+          "title": "亂舞春秋",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 278,
+          "vip": false
+        },
+        {
+          "id": 536115201,
+          "mid": "demo-536115201",
+          "mediaMid": "demo-536115201",
+          "title": "困獸之鬥",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 267,
+          "vip": false
+        },
+        {
+          "id": 536115202,
+          "mid": "demo-536115202",
+          "mediaMid": "demo-536115202",
+          "title": "園遊會",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 254,
+          "vip": false
+        },
+        {
+          "id": 536115203,
+          "mid": "demo-536115203",
+          "mediaMid": "demo-536115203",
+          "title": "止戰之殤",
+          "artist": "周杰伦",
+          "album": "七里香",
+          "cover": "album-0-0.jpg",
+          "duration": 275,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "范特西",
+      "artist": "周杰伦",
+      "year": "2001",
+      "date": "2001年9月14日",
+      "genre": "華語流行樂",
+      "cover": "album-0-1.jpg",
+      "tracks": [
+        {
+          "id": 535739349,
+          "mid": "demo-535739349",
+          "mediaMid": "demo-535739349",
+          "title": "愛在西元前",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 234,
+          "vip": false
+        },
+        {
+          "id": 535739350,
+          "mid": "demo-535739350",
+          "mediaMid": "demo-535739350",
+          "title": "爸我回來了",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 236,
+          "vip": false
+        },
+        {
+          "id": 535739351,
+          "mid": "demo-535739351",
+          "mediaMid": "demo-535739351",
+          "title": "簡單愛",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 271,
+          "vip": false
+        },
+        {
+          "id": 535739352,
+          "mid": "demo-535739352",
+          "mediaMid": "demo-535739352",
+          "title": "忍者",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 159,
+          "vip": false
+        },
+        {
+          "id": 535739353,
+          "mid": "demo-535739353",
+          "mediaMid": "demo-535739353",
+          "title": "開不了口",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 285,
+          "vip": false
+        },
+        {
+          "id": 535739354,
+          "mid": "demo-535739354",
+          "mediaMid": "demo-535739354",
+          "title": "上海一九四三",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 196,
+          "vip": false
+        },
+        {
+          "id": 535739356,
+          "mid": "demo-535739356",
+          "mediaMid": "demo-535739356",
+          "title": "對不起",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 225,
+          "vip": false
+        },
+        {
+          "id": 535739357,
+          "mid": "demo-535739357",
+          "mediaMid": "demo-535739357",
+          "title": "威廉古堡",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 236,
+          "vip": false
+        },
+        {
+          "id": 535739358,
+          "mid": "demo-535739358",
+          "mediaMid": "demo-535739358",
+          "title": "雙截棍",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 201,
+          "vip": false
+        },
+        {
+          "id": 535739359,
+          "mid": "demo-535739359",
+          "mediaMid": "demo-535739359",
+          "title": "安靜",
+          "artist": "周杰伦",
+          "album": "范特西",
+          "cover": "album-0-1.jpg",
+          "duration": 334,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "葉惠美",
+      "artist": "周杰伦",
+      "year": "2003",
+      "date": "2003年7月31日",
+      "genre": "華語流行樂",
+      "cover": "album-0-2.jpg",
+      "tracks": [
+        {
+          "id": 535824736,
+          "mid": "demo-535824736",
+          "mediaMid": "demo-535824736",
+          "title": "以父之名",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 342,
+          "vip": false
+        },
+        {
+          "id": 535824737,
+          "mid": "demo-535824737",
+          "mediaMid": "demo-535824737",
+          "title": "懦夫",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 218,
+          "vip": false
+        },
+        {
+          "id": 535824738,
+          "mid": "demo-535824738",
+          "mediaMid": "demo-535824738",
+          "title": "晴天",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 270,
+          "vip": false
+        },
+        {
+          "id": 535824739,
+          "mid": "demo-535824739",
+          "mediaMid": "demo-535824739",
+          "title": "三年二班",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 280,
+          "vip": false
+        },
+        {
+          "id": 535824740,
+          "mid": "demo-535824740",
+          "mediaMid": "demo-535824740",
+          "title": "東風破",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 315,
+          "vip": false
+        },
+        {
+          "id": 535824741,
+          "mid": "demo-535824741",
+          "mediaMid": "demo-535824741",
+          "title": "你聽得到",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 230,
+          "vip": false
+        },
+        {
+          "id": 535824742,
+          "mid": "demo-535824742",
+          "mediaMid": "demo-535824742",
+          "title": "同一種調調",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 231,
+          "vip": false
+        },
+        {
+          "id": 535824743,
+          "mid": "demo-535824743",
+          "mediaMid": "demo-535824743",
+          "title": "她的睫毛",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 233,
+          "vip": false
+        },
+        {
+          "id": 535824744,
+          "mid": "demo-535824744",
+          "mediaMid": "demo-535824744",
+          "title": "愛情懸崖",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 262,
+          "vip": false
+        },
+        {
+          "id": 535824745,
+          "mid": "demo-535824745",
+          "mediaMid": "demo-535824745",
+          "title": "梯田",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 213,
+          "vip": false
+        },
+        {
+          "id": 535824746,
+          "mid": "demo-535824746",
+          "mediaMid": "demo-535824746",
+          "title": "雙刀",
+          "artist": "周杰伦",
+          "album": "葉惠美",
+          "cover": "album-0-2.jpg",
+          "duration": 291,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "逆光",
+      "artist": "孙燕姿",
+      "year": "2007",
+      "date": "2007年5月2日",
+      "genre": "華語流行樂",
+      "cover": "album-1-0.jpg",
+      "tracks": [
+        {
+          "id": 905226301,
+          "mid": "demo-905226301",
+          "mediaMid": "demo-905226301",
+          "title": "In The Beginning",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 60,
+          "vip": false
+        },
+        {
+          "id": 905226302,
+          "mid": "demo-905226302",
+          "mediaMid": "demo-905226302",
+          "title": "逆光",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 294,
+          "vip": false
+        },
+        {
+          "id": 905226303,
+          "mid": "demo-905226303",
+          "mediaMid": "demo-905226303",
+          "title": "夢遊",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 188,
+          "vip": false
+        },
+        {
+          "id": 905226304,
+          "mid": "demo-905226304",
+          "mediaMid": "demo-905226304",
+          "title": "咕嘰咕嘰",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 273,
+          "vip": false
+        },
+        {
+          "id": 905226305,
+          "mid": "demo-905226305",
+          "mediaMid": "demo-905226305",
+          "title": "我懷念的",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 289,
+          "vip": false
+        },
+        {
+          "id": 905226306,
+          "mid": "demo-905226306",
+          "mediaMid": "demo-905226306",
+          "title": "安寧",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 199,
+          "vip": false
+        },
+        {
+          "id": 905226307,
+          "mid": "demo-905226307",
+          "mediaMid": "demo-905226307",
+          "title": "飄著",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 250,
+          "vip": false
+        },
+        {
+          "id": 905226309,
+          "mid": "demo-905226309",
+          "mediaMid": "demo-905226309",
+          "title": "愛情的花樣",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 223,
+          "vip": false
+        },
+        {
+          "id": 905226310,
+          "mid": "demo-905226310",
+          "mediaMid": "demo-905226310",
+          "title": "漩渦",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 291,
+          "vip": false
+        },
+        {
+          "id": 905226311,
+          "mid": "demo-905226311",
+          "mediaMid": "demo-905226311",
+          "title": "需要你",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 248,
+          "vip": false
+        },
+        {
+          "id": 905226312,
+          "mid": "demo-905226312",
+          "mediaMid": "demo-905226312",
+          "title": "關於",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 237,
+          "vip": false
+        },
+        {
+          "id": 905226313,
+          "mid": "demo-905226313",
+          "mediaMid": "demo-905226313",
+          "title": "Afterward",
+          "artist": "孙燕姿",
+          "album": "逆光",
+          "cover": "album-1-0.jpg",
+          "duration": 56,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "克卜勒",
+      "artist": "孙燕姿",
+      "year": "2014",
+      "date": "2014年2月27日",
+      "genre": "華語流行樂",
+      "cover": "album-1-1.jpg",
+      "tracks": [
+        {
+          "id": 1443147414,
+          "mid": "demo-1443147414",
+          "mediaMid": "demo-1443147414",
+          "title": "克卜勒",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 249,
+          "vip": false
+        },
+        {
+          "id": 1443147416,
+          "mid": "demo-1443147416",
+          "mediaMid": "demo-1443147416",
+          "title": "渴",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 282,
+          "vip": false
+        },
+        {
+          "id": 1443147419,
+          "mid": "demo-1443147419",
+          "mediaMid": "demo-1443147419",
+          "title": "無限大",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 252,
+          "vip": false
+        },
+        {
+          "id": 1443147422,
+          "mid": "demo-1443147422",
+          "mediaMid": "demo-1443147422",
+          "title": "尚好的青春",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 265,
+          "vip": false
+        },
+        {
+          "id": 1443147423,
+          "mid": "demo-1443147423",
+          "mediaMid": "demo-1443147423",
+          "title": "天使的指紋",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 246,
+          "vip": false
+        },
+        {
+          "id": 1443147424,
+          "mid": "demo-1443147424",
+          "mediaMid": "demo-1443147424",
+          "title": "銀泰",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 263,
+          "vip": false
+        },
+        {
+          "id": 1443147426,
+          "mid": "demo-1443147426",
+          "mediaMid": "demo-1443147426",
+          "title": "圍繞",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 198,
+          "vip": false
+        },
+        {
+          "id": 1443147427,
+          "mid": "demo-1443147427",
+          "mediaMid": "demo-1443147427",
+          "title": "錯覺",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 255,
+          "vip": false
+        },
+        {
+          "id": 1443147430,
+          "mid": "demo-1443147430",
+          "mediaMid": "demo-1443147430",
+          "title": "比較幸福",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 276,
+          "vip": false
+        },
+        {
+          "id": 1443147552,
+          "mid": "demo-1443147552",
+          "mediaMid": "demo-1443147552",
+          "title": "雨還是不停地落下",
+          "artist": "孙燕姿",
+          "album": "克卜勒",
+          "cover": "album-1-1.jpg",
+          "duration": 290,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "After Hours",
+      "artist": "The Weeknd",
+      "year": "2020",
+      "date": "2020年3月20日",
+      "genre": "R&B/靈魂樂",
+      "cover": "album-2-0.jpg",
+      "tracks": [
+        {
+          "id": 1499385854,
+          "mid": "demo-1499385854",
+          "mediaMid": "demo-1499385854",
+          "title": "Alone Again",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 250,
+          "vip": false
+        },
+        {
+          "id": 1499385861,
+          "mid": "demo-1499385861",
+          "mediaMid": "demo-1499385861",
+          "title": "Too Late",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 240,
+          "vip": false
+        },
+        {
+          "id": 1499386245,
+          "mid": "demo-1499386245",
+          "mediaMid": "demo-1499386245",
+          "title": "Hardest To Love",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 211,
+          "vip": false
+        },
+        {
+          "id": 1499386246,
+          "mid": "demo-1499386246",
+          "mediaMid": "demo-1499386246",
+          "title": "Scared To Live",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 191,
+          "vip": false
+        },
+        {
+          "id": 1499386249,
+          "mid": "demo-1499386249",
+          "mediaMid": "demo-1499386249",
+          "title": "Snowchild",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 247,
+          "vip": false
+        },
+        {
+          "id": 1499386250,
+          "mid": "demo-1499386250",
+          "mediaMid": "demo-1499386250",
+          "title": "Escape From LA",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 356,
+          "vip": false
+        },
+        {
+          "id": 1499386253,
+          "mid": "demo-1499386253",
+          "mediaMid": "demo-1499386253",
+          "title": "Heartless",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 198,
+          "vip": false
+        },
+        {
+          "id": 1499386254,
+          "mid": "demo-1499386254",
+          "mediaMid": "demo-1499386254",
+          "title": "Faith",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 283,
+          "vip": false
+        },
+        {
+          "id": 1499386265,
+          "mid": "demo-1499386265",
+          "mediaMid": "demo-1499386265",
+          "title": "Blinding Lights",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 200,
+          "vip": false
+        },
+        {
+          "id": 1499386363,
+          "mid": "demo-1499386363",
+          "mediaMid": "demo-1499386363",
+          "title": "In Your Eyes",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 238,
+          "vip": false
+        },
+        {
+          "id": 1499386369,
+          "mid": "demo-1499386369",
+          "mediaMid": "demo-1499386369",
+          "title": "Save Your Tears",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 216,
+          "vip": false
+        },
+        {
+          "id": 1499386370,
+          "mid": "demo-1499386370",
+          "mediaMid": "demo-1499386370",
+          "title": "Repeat After Me (Interlude)",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 196,
+          "vip": false
+        },
+        {
+          "id": 1499386375,
+          "mid": "demo-1499386375",
+          "mediaMid": "demo-1499386375",
+          "title": "After Hours",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 361,
+          "vip": false
+        },
+        {
+          "id": 1499386377,
+          "mid": "demo-1499386377",
+          "mediaMid": "demo-1499386377",
+          "title": "Until I Bleed Out",
+          "artist": "The Weeknd",
+          "album": "After Hours",
+          "cover": "album-2-0.jpg",
+          "duration": 190,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "Dawn FM",
+      "artist": "The Weeknd",
+      "year": "2022",
+      "date": "2022年1月7日",
+      "genre": "R&B/靈魂樂",
+      "cover": "album-2-1.jpg",
+      "tracks": [
+        {
+          "id": 1603164219,
+          "mid": "demo-1603164219",
+          "mediaMid": "demo-1603164219",
+          "title": "Dawn FM",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 96,
+          "vip": false
+        },
+        {
+          "id": 1603164230,
+          "mid": "demo-1603164230",
+          "mediaMid": "demo-1603164230",
+          "title": "Gasoline",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 212,
+          "vip": false
+        },
+        {
+          "id": 1603164232,
+          "mid": "demo-1603164232",
+          "mediaMid": "demo-1603164232",
+          "title": "How Do I Make You Love Me?",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 214,
+          "vip": false
+        },
+        {
+          "id": 1603164239,
+          "mid": "demo-1603164239",
+          "mediaMid": "demo-1603164239",
+          "title": "Take My Breath",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 339,
+          "vip": false
+        },
+        {
+          "id": 1603164243,
+          "mid": "demo-1603164243",
+          "mediaMid": "demo-1603164243",
+          "title": "Sacrifice",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 189,
+          "vip": false
+        },
+        {
+          "id": 1603164457,
+          "mid": "demo-1603164457",
+          "mediaMid": "demo-1603164457",
+          "title": "A Tale By Quincy",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 96,
+          "vip": false
+        },
+        {
+          "id": 1603164465,
+          "mid": "demo-1603164465",
+          "mediaMid": "demo-1603164465",
+          "title": "Out of Time",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 214,
+          "vip": false
+        },
+        {
+          "id": 1603164468,
+          "mid": "demo-1603164468",
+          "mediaMid": "demo-1603164468",
+          "title": "Here We Go… Again (feat. Tyler, The Creator)",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 210,
+          "vip": false
+        },
+        {
+          "id": 1603164470,
+          "mid": "demo-1603164470",
+          "mediaMid": "demo-1603164470",
+          "title": "Best Friends",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 164,
+          "vip": false
+        },
+        {
+          "id": 1603164471,
+          "mid": "demo-1603164471",
+          "mediaMid": "demo-1603164471",
+          "title": "Is There Someone Else?",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 199,
+          "vip": false
+        },
+        {
+          "id": 1603164473,
+          "mid": "demo-1603164473",
+          "mediaMid": "demo-1603164473",
+          "title": "Starry Eyes",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 148,
+          "vip": false
+        },
+        {
+          "id": 1603164477,
+          "mid": "demo-1603164477",
+          "mediaMid": "demo-1603164477",
+          "title": "Every Angel is Terrifying",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 167,
+          "vip": false
+        },
+        {
+          "id": 1603164483,
+          "mid": "demo-1603164483",
+          "mediaMid": "demo-1603164483",
+          "title": "Don’t Break My Heart",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 205,
+          "vip": false
+        },
+        {
+          "id": 1603164793,
+          "mid": "demo-1603164793",
+          "mediaMid": "demo-1603164793",
+          "title": "I Heard You’re Married (feat. Lil Wayne)",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 264,
+          "vip": false
+        },
+        {
+          "id": 1603164796,
+          "mid": "demo-1603164796",
+          "mediaMid": "demo-1603164796",
+          "title": "Less Than Zero",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 212,
+          "vip": false
+        },
+        {
+          "id": 1603164797,
+          "mid": "demo-1603164797",
+          "mediaMid": "demo-1603164797",
+          "title": "Phantom Regret by Jim",
+          "artist": "The Weeknd",
+          "album": "Dawn FM",
+          "cover": "album-2-1.jpg",
+          "duration": 180,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "Nine Track Mind",
+      "artist": "Charlie Puth",
+      "year": "2016",
+      "date": "2016年1月29日",
+      "genre": "流行樂",
+      "cover": "album-3-0.jpg",
+      "tracks": [
+        {
+          "id": 1041127298,
+          "mid": "demo-1041127298",
+          "mediaMid": "demo-1041127298",
+          "title": "One Call Away",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 194,
+          "vip": false
+        },
+        {
+          "id": 1041127299,
+          "mid": "demo-1041127299",
+          "mediaMid": "demo-1041127299",
+          "title": "Dangerously",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 199,
+          "vip": false
+        },
+        {
+          "id": 1041127300,
+          "mid": "demo-1041127300",
+          "mediaMid": "demo-1041127300",
+          "title": "Marvin Gaye (feat. Meghan Trainor)",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 190,
+          "vip": false
+        },
+        {
+          "id": 1041127301,
+          "mid": "demo-1041127301",
+          "mediaMid": "demo-1041127301",
+          "title": "Losing My Mind",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 212,
+          "vip": false
+        },
+        {
+          "id": 1041127302,
+          "mid": "demo-1041127302",
+          "mediaMid": "demo-1041127302",
+          "title": "We Don’t Talk Anymore (feat. Selena Gomez)",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 218,
+          "vip": false
+        },
+        {
+          "id": 1041127303,
+          "mid": "demo-1041127303",
+          "mediaMid": "demo-1041127303",
+          "title": "My Gospel",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 211,
+          "vip": false
+        },
+        {
+          "id": 1041127304,
+          "mid": "demo-1041127304",
+          "mediaMid": "demo-1041127304",
+          "title": "Up All Night",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 190,
+          "vip": false
+        },
+        {
+          "id": 1041127305,
+          "mid": "demo-1041127305",
+          "mediaMid": "demo-1041127305",
+          "title": "Left Right Left",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 206,
+          "vip": false
+        },
+        {
+          "id": 1041127306,
+          "mid": "demo-1041127306",
+          "mediaMid": "demo-1041127306",
+          "title": "Then There's You",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 214,
+          "vip": false
+        },
+        {
+          "id": 1041127307,
+          "mid": "demo-1041127307",
+          "mediaMid": "demo-1041127307",
+          "title": "Suffer",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 211,
+          "vip": false
+        },
+        {
+          "id": 1041127308,
+          "mid": "demo-1041127308",
+          "mediaMid": "demo-1041127308",
+          "title": "As You Are (feat. Shy Carter)",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 236,
+          "vip": false
+        },
+        {
+          "id": 1041127309,
+          "mid": "demo-1041127309",
+          "mediaMid": "demo-1041127309",
+          "title": "Some Type of Love",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 188,
+          "vip": false
+        },
+        {
+          "id": 1041127310,
+          "mid": "demo-1041127310",
+          "mediaMid": "demo-1041127310",
+          "title": "See You Again (feat. Charlie Puth) [From \"Furious 7\"]",
+          "artist": "Charlie Puth",
+          "album": "Nine Track Mind",
+          "cover": "album-3-0.jpg",
+          "duration": 231,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "Voicenotes",
+      "artist": "Charlie Puth",
+      "year": "2018",
+      "date": "2018年5月11日",
+      "genre": "流行樂",
+      "cover": "album-3-1.jpg",
+      "tracks": [
+        {
+          "id": 1293229676,
+          "mid": "demo-1293229676",
+          "mediaMid": "demo-1293229676",
+          "title": "The Way I Am",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 186,
+          "vip": false
+        },
+        {
+          "id": 1293229677,
+          "mid": "demo-1293229677",
+          "mediaMid": "demo-1293229677",
+          "title": "Attention",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 209,
+          "vip": false
+        },
+        {
+          "id": 1293230532,
+          "mid": "demo-1293230532",
+          "mediaMid": "demo-1293230532",
+          "title": "LA Girls",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 197,
+          "vip": false
+        },
+        {
+          "id": 1293230534,
+          "mid": "demo-1293230534",
+          "mediaMid": "demo-1293230534",
+          "title": "How Long",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 201,
+          "vip": false
+        },
+        {
+          "id": 1293230535,
+          "mid": "demo-1293230535",
+          "mediaMid": "demo-1293230535",
+          "title": "Done For Me (feat. Kehlani)",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 180,
+          "vip": false
+        },
+        {
+          "id": 1293230541,
+          "mid": "demo-1293230541",
+          "mediaMid": "demo-1293230541",
+          "title": "Patient",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 191,
+          "vip": false
+        },
+        {
+          "id": 1293230542,
+          "mid": "demo-1293230542",
+          "mediaMid": "demo-1293230542",
+          "title": "If You Leave Me Now (feat. Boyz II Men)",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 243,
+          "vip": false
+        },
+        {
+          "id": 1293230545,
+          "mid": "demo-1293230545",
+          "mediaMid": "demo-1293230545",
+          "title": "BOY",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 263,
+          "vip": false
+        },
+        {
+          "id": 1293230827,
+          "mid": "demo-1293230827",
+          "mediaMid": "demo-1293230827",
+          "title": "Slow It Down",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 190,
+          "vip": false
+        },
+        {
+          "id": 1293230840,
+          "mid": "demo-1293230840",
+          "mediaMid": "demo-1293230840",
+          "title": "Change (feat. James Taylor)",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 218,
+          "vip": false
+        },
+        {
+          "id": 1293230842,
+          "mid": "demo-1293230842",
+          "mediaMid": "demo-1293230842",
+          "title": "Somebody Told Me",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 216,
+          "vip": false
+        },
+        {
+          "id": 1293230844,
+          "mid": "demo-1293230844",
+          "mediaMid": "demo-1293230844",
+          "title": "Empty Cups",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 171,
+          "vip": false
+        },
+        {
+          "id": 1293230847,
+          "mid": "demo-1293230847",
+          "mediaMid": "demo-1293230847",
+          "title": "Through It All",
+          "artist": "Charlie Puth",
+          "album": "Voicenotes",
+          "cover": "album-3-1.jpg",
+          "duration": 206,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "天空",
+      "artist": "王菲",
+      "year": "1994",
+      "date": "1994年11月10日",
+      "genre": "華語流行樂",
+      "cover": "album-4-0.jpg",
+      "tracks": [
+        {
+          "id": 1443363499,
+          "mid": "demo-1443363499",
+          "mediaMid": "demo-1443363499",
+          "title": "天空",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 259,
+          "vip": false
+        },
+        {
+          "id": 1443363501,
+          "mid": "demo-1443363501",
+          "mediaMid": "demo-1443363501",
+          "title": "棋子",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 287,
+          "vip": false
+        },
+        {
+          "id": 1443363503,
+          "mid": "demo-1443363503",
+          "mediaMid": "demo-1443363503",
+          "title": "天使",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 263,
+          "vip": false
+        },
+        {
+          "id": 1443363504,
+          "mid": "demo-1443363504",
+          "mediaMid": "demo-1443363504",
+          "title": "影子",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 294,
+          "vip": false
+        },
+        {
+          "id": 1443363506,
+          "mid": "demo-1443363506",
+          "mediaMid": "demo-1443363506",
+          "title": "天空 (Unplugged)",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 217,
+          "vip": false
+        },
+        {
+          "id": 1443363508,
+          "mid": "demo-1443363508",
+          "mediaMid": "demo-1443363508",
+          "title": "眷戀",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 238,
+          "vip": false
+        },
+        {
+          "id": 1443363509,
+          "mid": "demo-1443363509",
+          "mediaMid": "demo-1443363509",
+          "title": "不變",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 286,
+          "vip": false
+        },
+        {
+          "id": 1443363511,
+          "mid": "demo-1443363511",
+          "mediaMid": "demo-1443363511",
+          "title": "矜持",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 278,
+          "vip": false
+        },
+        {
+          "id": 1443363514,
+          "mid": "demo-1443363514",
+          "mediaMid": "demo-1443363514",
+          "title": "掙脫",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 268,
+          "vip": false
+        },
+        {
+          "id": 1443363516,
+          "mid": "demo-1443363516",
+          "mediaMid": "demo-1443363516",
+          "title": "誓言",
+          "artist": "王菲",
+          "album": "天空",
+          "cover": "album-4-0.jpg",
+          "duration": 262,
+          "vip": false
+        }
+      ]
+    },
+    {
+      "name": "認了吧 (台灣版)",
+      "artist": "陈奕迅",
+      "year": "2007",
+      "date": "2007年4月24日",
+      "genre": "華語流行樂",
+      "cover": "album-5-0.jpg",
+      "tracks": [
+        {
+          "id": 1443352452,
+          "mid": "demo-1443352452",
+          "mediaMid": "demo-1443352452",
+          "title": "煙味",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 263,
+          "vip": false
+        },
+        {
+          "id": 1443352455,
+          "mid": "demo-1443352455",
+          "mediaMid": "demo-1443352455",
+          "title": "淘汰",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 285,
+          "vip": false
+        },
+        {
+          "id": 1443352459,
+          "mid": "demo-1443352459",
+          "mediaMid": "demo-1443352459",
+          "title": "快樂男生",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 202,
+          "vip": false
+        },
+        {
+          "id": 1443352461,
+          "mid": "demo-1443352461",
+          "mediaMid": "demo-1443352461",
+          "title": "紅玫瑰",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 240,
+          "vip": false
+        },
+        {
+          "id": 1443352463,
+          "mid": "demo-1443352463",
+          "mediaMid": "demo-1443352463",
+          "title": "月黑風高",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 276,
+          "vip": false
+        },
+        {
+          "id": 1443352465,
+          "mid": "demo-1443352465",
+          "mediaMid": "demo-1443352465",
+          "title": "愛情轉移",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 260,
+          "vip": false
+        },
+        {
+          "id": 1443352467,
+          "mid": "demo-1443352467",
+          "mediaMid": "demo-1443352467",
+          "title": "好久不見",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 250,
+          "vip": false
+        },
+        {
+          "id": 1443352470,
+          "mid": "demo-1443352470",
+          "mediaMid": "demo-1443352470",
+          "title": "愛是一本書",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 264,
+          "vip": false
+        },
+        {
+          "id": 1443352471,
+          "mid": "demo-1443352471",
+          "mediaMid": "demo-1443352471",
+          "title": "第一個雅皮士",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 205,
+          "vip": false
+        },
+        {
+          "id": 1443352473,
+          "mid": "demo-1443352473",
+          "mediaMid": "demo-1443352473",
+          "title": "白色球鞋",
+          "artist": "陈奕迅",
+          "album": "認了吧 (台灣版)",
+          "cover": "album-5-0.jpg",
+          "duration": 278,
+          "vip": false
+        }
+      ]
+    }
+  ]
+}

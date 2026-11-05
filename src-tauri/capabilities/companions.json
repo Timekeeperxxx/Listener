@@ -1,0 +1,13 @@
+{
+  "identifier": "companions",
+  "description": "Local playback controls and lyrics only. Account commands reject these windows.",
+  "windows": [
+    "mini",
+    "desktop-lyrics"
+  ],
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close"
+  ]
+}

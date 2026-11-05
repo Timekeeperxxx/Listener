@@ -1,0 +1,39 @@
+{
+  "name": "listener",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "tauri": "tauri",
+    "mac:dev": "node scripts/macos.mjs dev",
+    "mac:build": "node scripts/macos.mjs build --bundles app && node scripts/package-dmg.mjs",
+    "demo": "vite --host 127.0.0.1 --port 4173",
+    "build:demo": "vue-tsc --noEmit && vite build --config vite.demo.config.ts",
+    "mac:build:unsigned": "node scripts/macos.mjs build --unsigned --bundles app && node scripts/package-dmg.mjs",
+    "release:manifest": "node scripts/release-manifest.mjs"
+  },
+  "dependencies": {
+    "@applemusic-like-lyrics/core": "^0.6.0",
+    "@applemusic-like-lyrics/lyric": "^1.1.0",
+    "@applemusic-like-lyrics/vue": "^0.6.0",
+    "@lucide/vue": "^1.67.0",
+    "@tauri-apps/api": "^2.12.0",
+    "pinia": "^3.0.0",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "happy-dom": "^21.0.4",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.0",
+    "vue-tsc": "^3.0.0"
+  }
+}

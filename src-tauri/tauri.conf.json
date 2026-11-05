@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Listener",
+  "version": "0.3.0",
+  "identifier": "com.listener.music",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Listener",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 960,
+        "minHeight": 680,
+        "center": true,
+        "transparent": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 22,
+          "y": 23
+        },
+        "windowEffects": {
+          "effects": [
+            "liquidGlassRegular",
+            "sidebar"
+          ],
+          "state": "followsWindowActiveState",
+          "radius": 18
+        }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src ipc: http://ipc.localhost https://*.qq.com https://*.qqmusic.qq.com; media-src 'self' asset: http://asset.localhost https://asset.localhost https://*.qq.com https://*.qqmusic.qq.com; worker-src 'self' blob:; font-src 'self' data:",
+      "capabilities": [
+        "main",
+        "companions"
+      ],
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/downloads/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Music",
+    "shortDescription": "听见每一句",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.3",
+      "entitlements": "Entitlements.plist",
+      "signingIdentity": "-"
+    },
+    "resources": [
+      "../THIRD_PARTY_NOTICES.md"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCNzMzRTAxMDU4RUIxODIKUldTQ3NZNEZBVDV6SzJJem4rM040V3NkWkNGWDVURmdLVFRkQ1NCcHlBR3g1d0FoSmt2YTZqREQK",
+      "endpoints": [
+        "https://github.com/Timekeeperxxx/Listener/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true
+    }
+  }
+}

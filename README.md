@@ -1,95 +1,102 @@
-# Timekeeper
+# Listener
 
-Timekeeper 是一款面向 Linux 的非官方 QQ 音乐桌面播放器，使用 GTK 4 构建。登录自己的 QQ 音乐账号后，可以浏览「我喜欢」与自建歌单、搜索歌曲并在线播放。界面以资料库、紧凑播放栏和独立歌词页为核心，支持深浅色模式。
+轻量的 macOS QQ 音乐播放器。Tauri 2 + Rust + Vue 3，使用系统 WebKit 播放音频、AMLL 渲染逐字歌词。界面参考 YesPlayMusic 的音乐库布局和字体，macOS 26 使用原生 Liquid Glass，较旧系统使用磨砂材质。
 
-> **0.1.0 Beta**：目前主要在 Ubuntu 24.04 amd64 的原生 Wayland 会话中测试。项目仍在完善，QQ 音乐接口变化、会员权限及地区版权限制都可能影响登录或播放。
+[下载 macOS Apple Silicon 版本](https://github.com/Timekeeperxxx/Listener/releases/latest) · [0.3.0 更新说明](docs/releases/0.3.0.md)
 
-## 界面预览
+## 功能
 
-### 资料库
+- 手机 QQ、微信、QQ 音乐扫码登录，登录凭据保存在 macOS 钥匙串，支持登录续期。
+- 读取“我喜欢”、自建及收藏歌单；创建、重命名、删除自己的 QQ 歌单，增删歌曲和红心收藏。
+- 统一搜索歌曲、歌手、专辑及公开歌单，分页读取真实结果，保存最近 20 条搜索。
+- 浏览完整线上歌手和专辑目录，查看头像、封面、简介、歌曲与发行专辑。歌手的“播放全部”和随机播放先读取完整曲目。
+- 收藏歌手和专辑，提供“我的收藏”入口；这两类收藏保存在当前 Mac，按 QQ 账户区分，不写入 QQ 云端收藏。
+- 队列支持下一首播放、追加、移除、排序、随机及循环。按账户保存队列与播放位置，重新打开后暂停等待续播。
+- 在歌曲结束前 20 秒准备下一首的播放地址和音频缓冲，减少切歌等待；可关闭。
+- 支持 MP3、FLAC、Hi-Res 与下载管理，优先播放已下载的音频。实际权限和音质由 QQ 音乐决定。
+- AMLL 逐字高亮与逐行歌词、译文及音译，歌词页展开/关闭动效，浏览歌词后延时回中。
+- 歌词字号、行距、译文、音译偏好持久保存；支持全局及每首歌独立的时间微调。
+- 菜单栏播放控制、可配置全局快捷键、关窗后台播放、媒体键、迷你播放器及桌面歌词。
+- 定时停止、歌词缓存容量限制及清理、本机存储用量、应用内检查更新与签名校验。
 
-![Timekeeper 资料库，展示「我喜欢」歌曲列表与底部播放栏](assets/screenshots/library.png)
+## 开发
 
-### 播放与同步歌词
+需要 macOS 12.3+（当前发布只提供 Apple Silicon）、Node.js 22.12+、Rust 1.90+ 及 Xcode Command Line Tools。
 
-![Timekeeper 播放页，展示封面与同步歌词](assets/screenshots/player.png)
-
-## 已实现功能
-
-- **账号与资料库**：QQ 扫码登录；读取「我喜欢」和自建歌单；在设置中切换账号或注销。歌曲列表接近底部时自动加载下一页。
-- **搜索与播放**：搜索歌曲、播放整个列表、上一首／下一首、随机播放、单曲循环、拖动进度、调节音量；播放失败后可点击播放键重试。
-- **音质**：默认「自动」，优先尝试高品质，接口不提供或持续缓冲时切换为标准音质；也可在设置中固定标准、高品质或无损。实际可播放音质由 QQ 音乐账号和歌曲决定。
-- **歌词页**：点击底栏封面打开或关闭播放页。优先显示 QRC 逐字高光，缺少逐字数据时使用 LRC 逐行歌词；支持触摸板滚动和点击歌词跳转。歌词缺失时会显示提示。
-- **播放历史**：按账号在本机保存最近播放的最多 500 首不同歌曲，重复播放的歌曲移到最前。
-- **外观与桌面集成**：深色／浅色模式、主题色、歌词字号和高光颜色；支持 MPRIS 媒体控制，以及桌面环境提供状态栏托盘时的托盘操作。
-
-界面设计参考 [Apple Music](https://music.apple.com/)、[Lyrune](https://github.com/amtoaer/lyrune) 和 [YAQMC](https://github.com/YAQMC/YAQMC) 的部分布局与交互；本项目独立实现，未获得 QQ 音乐官方授权。
-
-## 安装测试版
-
-从 [v0.1.0-beta.1 发布页](https://github.com/Timekeeperxxx/Timekeeper/releases/tag/v0.1.0-beta.1) 下载适合系统的文件：
-
-| 格式 | 适用系统 | 安装或运行 |
-| --- | --- | --- |
-| `.deb` | Ubuntu 24.04 amd64 | `sudo apt install ./timekeeper_0.1.0.beta1_amd64.deb` |
-| `.rpm` | Fedora 44 x86_64 | `sudo dnf install ./timekeeper-0.1.0-0.beta1.fc44.x86_64.rpm` |
-| `.AppImage` | Ubuntu 24.04 amd64 及兼容环境 | `chmod +x Timekeeper-0.1.0-beta.1-x86_64.AppImage && ./Timekeeper-0.1.0-beta.1-x86_64.AppImage` |
-
-例如，Ubuntu 用户下载 `.deb` 后执行：
-
-```bash
-sudo apt install ./timekeeper_0.1.0.beta1_amd64.deb
+```sh
+npm ci
+npm run mac:dev
 ```
 
-安装 `.deb` 或 `.rpm` 后，从应用菜单打开 **Timekeeper**，或在终端运行 `timekeeper`。包管理器会安装缺少的系统依赖。AppImage 无需安装，但这个 Beta 包仅内置应用及 Python 第三方依赖，仍需宿主机提供 **Python 3.12、PyGObject、GTK 4 和 GStreamer**；在 Ubuntu 24.04 上可先安装下方「从源码运行」列出的系统依赖。它不是跨发行版完全自包含的 AppImage。
+独立 HTML 演示：
 
-卸载 `.deb` 可运行 `sudo apt remove timekeeper`；卸载 `.rpm` 可运行 `sudo dnf remove timekeeper`。账号配置和播放历史不会随卸载自动删除。
-
-其他发行版、CPU 架构及强制 X11 会话尚未完成发布验收。尤其是 X11 下的触摸板歌词滚动，可靠性仍待验证。
-
-## 从源码运行
-
-在 Ubuntu 24.04 上安装运行依赖：
-
-```bash
-sudo apt install python3.12-venv python3-gi gir1.2-gtk-4.0 \
-  gir1.2-gstreamer-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-python3 -m venv --system-site-packages .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py
+```sh
+npm run demo
+# 打开 http://127.0.0.1:4173/demo.html
 ```
 
-虚拟环境使用 `--system-site-packages`，以便访问系统安装的 PyGObject。在线音频解码能力取决于本机 GStreamer 插件。
+网页中的线上目录和统一搜索读取 QQ 公开资料；个人歌单、播放、歌词及收藏写入是演示交互。账户登录、真实播放、全局快捷键和更新安装需要桌面应用。运行时无需 Node.js 服务。
 
-## 使用方法
+## 构建与发布
 
-1. 打开设置页，点击「扫码登录」，使用手机 QQ 扫码并确认。二维码过期时可点击「重新获取二维码」。
-2. 在左侧选择「我喜欢」「播放历史」或歌单；双击歌曲进入播放页，或点击「播放全部」。
-3. 点击底栏左侧封面切换播放页。滚动歌词可查看前后内容，点击某句从该处开始播放。
-4. 在设置页调整播放音质、界面外观和歌词样式；切换账号或注销登录也位于设置页。
+本地开发构建：
 
-| 快捷键 | 操作 |
-| --- | --- |
-| `空格` | 播放／暂停 |
-| `PageUp` / `PageDown` | 上一首／下一首 |
-| `Ctrl+K` | 聚焦搜索框 |
-
-在输入框中打字时，不会触发播放快捷键。
-
-## 本机数据与限制
-
-登录凭证保存在 `$XDG_CONFIG_HOME/player/credential.json`，默认路径为 `~/.config/player/credential.json`。这是为兼容早期版本沿用的目录；请勿分享其中的文件。播放历史按账号保存在同一目录，注销登录只删除凭证，不清除历史。应用不要求或读取 QQ 密码，不提供歌曲下载，也不长期缓存音频文件；播放地址临时获取。
-
-Timekeeper 使用非官方 [QQMusicApi](https://github.com/L-1124/QQMusicApi) 接口。接口变更、会员资格、歌曲下架或地区版权限制均可能导致个别功能不可用。请遵守 [腾讯音乐服务协议](https://www.tencentmusic.com/zh-cn/protocol.html)。本项目与腾讯音乐没有隶属或授权关系。
-
-## 开发与反馈
-
-在 Ubuntu 24.04 amd64 上安装 `dpkg-dev` 后运行 `./build-deb.sh`，输出为 `dist/timekeeper_0.1.0.beta1_amd64.deb`。随后用 [appimagetool](https://github.com/AppImage/appimagetool/releases) 运行 `./build-appimage.sh` 可生成 AppImage。RPM 在 Fedora 44 x86_64 上安装 `rpm-build`、`python3-pip` 后运行 `./build-rpm.sh`。三个脚本都只打包应用和 Python 第三方依赖，GTK 与 GStreamer 由系统提供。运行现有自动测试：
-
-```bash
-.venv/bin/python -m unittest discover -v
+```sh
+npm run mac:build:unsigned
 ```
 
-如需排查歌词触摸板滚动，可用 `TIMEKEEPER_SCROLL_LOG=/tmp/timekeeper-scroll.log timekeeper` 启动；日志只记录滚动事件、位置和窗口尺寸，正常启动不会写入此日志。
+发布构建需要与应用公钥匹配的更新签名私钥：
 
-问题与建议请提交到 [GitHub Issues](https://github.com/Timekeeperxxx/Timekeeper/issues)。版本变更和已知边界见 [发布说明](RELEASE_NOTES.md)。项目以 [GPL-3.0-or-later](LICENSE) 发布，第三方依赖保留各自的许可证。
+```sh
+# 可以提供密钥文件路径，也可以通过受保护的环境变量提供密钥内容
+export TAURI_SIGNING_PRIVATE_KEY=/path/to/signing.key
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=''
+npm run mac:build
+npm run release:manifest
+```
+
+未设置变量时，构建脚本查找 `~/.config/listener/updates/signing.key`。私钥不在仓库中。构建产物：
+
+- `src-tauri/target/release/bundle/macos/Listener.app`
+- 同目录下的 `Listener.app.tar.gz`、`.sig` 和 `latest.json`
+- `src-tauri/target/release/bundle/dmg/Listener_版本_aarch64.dmg` 及 SHA-256 文件
+
+将更新包、签名、清单和 DMG 上传到同一个 `v版本` GitHub Release。客户端从本仓库最新正式 Release 读取清单，下载后校验签名及签名绑定的版本。构建架构改变时需给清单脚本传入正确架构，并通过 `LISTENER_BUNDLE_DIR` 指定对应产物目录。
+
+DMG 由 `hdiutil` 创建和验证，避免构建期间调用 Finder。当前应用为本地 ad-hoc 签名，尚未做 Apple Developer ID 公证；更新包签名与 Apple 公证是两件不同的事。
+
+自动检查模板见 [docs/ci/check.yml](docs/ci/check.yml)。当前 GitHub OAuth 授权不含 `workflow` 权限，因此原有 Actions 文件保留；将模板启用为工作流需要具备相应权限的 GitHub 授权。
+
+## 操作
+
+| 操作 | 快捷键 |
+|---|---|
+| 播放 / 暂停 | 空格 |
+| 前后跳转 5 秒 | ← / → |
+| 展开 / 关闭歌词 | L |
+| 聚焦搜索 | ⌘F / ⌘K |
+| 全局播放 / 暂停 | ⌃⌥空格 |
+| 全局上一首 / 下一首 | ⌃⌥← / ⌃⌥→ |
+| 全局显示主窗口 | ⌃⌥M |
+
+全局快捷键可在设置中修改。默认关窗后继续播放，通过菜单栏或 Dock 打开主窗口；⌘Q 完全退出。歌词正偏移使歌词提前，负偏移使歌词延后。恢复播放不会自动开始，也不会复用有期限的旧音源地址。
+
+## 结构与验证
+
+`src` 包含 Vue 界面、Pinia 状态、歌词 Worker 和独立演示。`src-tauri/src` 包含 QQ 接入、登录、SQLite、下载、桌面能力及更新。设置中的字号与行距作用于 AMLL，歌词读取实时音频时钟；普通界面进度更新限频。预加载创建一个静音待播音频缓冲，迷你窗口和桌面歌词共用主窗口的音频状态。
+
+```sh
+npm test
+npm run build
+npm run build:demo
+cargo test --manifest-path src-tauri/Cargo.toml --lib
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+```
+
+QQ 接口错误、会话失效和权益不足会明确显示，不以演示数据代替。会员/地区、登录到期续期与云端写入的所有组合仍需对应账户验收。较旧 macOS 的音频、材质和全局快捷键需要对应设备验证。下载不提供断点续传。
+
+## 许可
+
+AGPL-3.0-only，与 [AMLL](https://github.com/Steve-xmh/applemusic-like-lyrics) 一致。字体和其他依赖说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+协议接入参考 [QQMusicApi](https://github.com/l-1124/QQMusicApi) 和 QQ 音乐实际响应，写请求格式参考 [qmweb-sign](https://github.com/jixunmoe/qmweb-sign)。框架能力见 [Tauri Updater](https://v2.tauri.app/plugin/updater/)、[系统托盘](https://v2.tauri.app/learn/system-tray/) 和 [全局快捷键](https://v2.tauri.app/plugin/global-shortcut/)。

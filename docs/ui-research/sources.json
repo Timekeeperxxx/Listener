@@ -1,0 +1,102 @@
+{
+  "purpose": "Listener UI research; static reference screenshots and local native UI captures",
+  "source_limit": "Repository screenshots do not verify current releases, interaction or motion.",
+  "assets": [
+    {
+      "file": "01-yesplaymusic-library.png",
+      "bytes": 332219,
+      "sha256": "51e135f3663327b87731ec99dc7874f647ef6cb73d3ffb8e59d00958e479276a",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "dimensions": [
+        2000,
+        1333
+      ],
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/qier222/YesPlayMusic",
+      "commit": "5d5fa23b7429c82a9932bbc2c9f6036403c5757b",
+      "source": "https://github.com/qier222/YesPlayMusic/blob/5d5fa23b7429c82a9932bbc2c9f6036403c5757b/images/library.png",
+      "download": "https://raw.githubusercontent.com/qier222/YesPlayMusic/5d5fa23b7429c82a9932bbc2c9f6036403c5757b/images/library.png"
+    },
+    {
+      "file": "02-yesplaymusic-album.png",
+      "bytes": 258656,
+      "sha256": "19dc9ce941d84d2497c6b599a213a384e6fd2a9c89845cbd75a3c757a1f8374b",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "dimensions": [
+        2000,
+        1333
+      ],
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/qier222/YesPlayMusic",
+      "commit": "5d5fa23b7429c82a9932bbc2c9f6036403c5757b",
+      "source": "https://github.com/qier222/YesPlayMusic/blob/5d5fa23b7429c82a9932bbc2c9f6036403c5757b/images/album.png",
+      "download": "https://raw.githubusercontent.com/qier222/YesPlayMusic/5d5fa23b7429c82a9932bbc2c9f6036403c5757b/images/album.png"
+    },
+    {
+      "file": "04-feishin-library.png",
+      "bytes": 1013366,
+      "sha256": "96c634b014952191eae5902c4fbbe6cfa7b25c71c0c1b729cf2db7e7a1528342",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "dimensions": [
+        1919,
+        1048
+      ],
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/jeffvli/feishin",
+      "commit": "155e562138f39adaa985a01bc974936925518b46",
+      "source": "https://github.com/jeffvli/feishin/blob/155e562138f39adaa985a01bc974936925518b46/media/preview_home.png",
+      "download": "https://raw.githubusercontent.com/jeffvli/feishin/155e562138f39adaa985a01bc974936925518b46/media/preview_home.png"
+    },
+    {
+      "file": "05-feishin-fullscreen.png",
+      "bytes": 889834,
+      "sha256": "852dca3dbc8a674e451775764fadf02d8c2f4365129c5596bbcc83839935c387",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "dimensions": [
+        1919,
+        1046
+      ],
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/jeffvli/feishin",
+      "commit": "155e562138f39adaa985a01bc974936925518b46",
+      "source": "https://github.com/jeffvli/feishin/blob/155e562138f39adaa985a01bc974936925518b46/media/preview_full_screen_player.png",
+      "download": "https://raw.githubusercontent.com/jeffvli/feishin/155e562138f39adaa985a01bc974936925518b46/media/preview_full_screen_player.png"
+    },
+    {
+      "file": "06-splayer-library.jpg",
+      "bytes": 137615,
+      "sha256": "07f7749a146e1c0625f13fbeca1bc7ca0a34c8eb43433abaa041fac1b86e4438",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/SPlayer-Dev/SPlayer",
+      "commit": "40d9ec606cc1e323c964ffea7bf0ab02f137e93b",
+      "source": "https://github.com/SPlayer-Dev/SPlayer/blob/40d9ec606cc1e323c964ffea7bf0ab02f137e93b/screenshots/SPlayer%20-%20%E4%B8%BB%E9%A1%B5%E9%9D%A2.jpg",
+      "download": "https://raw.githubusercontent.com/SPlayer-Dev/SPlayer/40d9ec606cc1e323c964ffea7bf0ab02f137e93b/screenshots/SPlayer%20-%20%E4%B8%BB%E9%A1%B5%E9%9D%A2.jpg",
+      "dimensions": [
+        1979,
+        1277
+      ]
+    },
+    {
+      "file": "07-splayer-lyrics.jpg",
+      "bytes": 120723,
+      "sha256": "9c207338608c4cab16523f7c77b552da6f6a9f929fe4cf5dcf51876b170e993c",
+      "capture_date": "2026-11-04",
+      "edited": false,
+      "capture_type": "repository-author-screenshot",
+      "repository": "https://github.com/SPlayer-Dev/SPlayer",
+      "commit": "40d9ec606cc1e323c964ffea7bf0ab02f137e93b",
+      "source": "https://github.com/SPlayer-Dev/SPlayer/blob/40d9ec606cc1e323c964ffea7bf0ab02f137e93b/screenshots/SPlayer%20-%20%E6%92%AD%E6%94%BE%E9%A1%B5%E9%9D%A2.jpg",
+      "download": "https://raw.githubusercontent.com/SPlayer-Dev/SPlayer/40d9ec606cc1e323c964ffea7bf0ab02f137e93b/screenshots/SPlayer%20-%20%E6%92%AD%E6%94%BE%E9%A1%B5%E9%9D%A2.jpg",
+      "dimensions": [
+        2110,
+        1381
+      ]
+    }
+  ]
+}
