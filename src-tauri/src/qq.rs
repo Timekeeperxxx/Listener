@@ -361,7 +361,7 @@ impl QqMusic {
         if code == Some(104003) {
             Err(AppError::new(
                 "PLAYBACK_AUTH_REQUIRED",
-                "QQ 音乐未授予播放权限，请重新登录。会员歌曲仍需要对应会员权益。",
+                "QQ 音乐未授予播放权限。会员或单独购买的歌曲需要对应权益；如果这是免费歌曲，请重新登录。",
             ))
         } else {
             Err(AppError::new(
@@ -512,10 +512,9 @@ pub(crate) fn map_track(raw: &Value) -> Result<Track> {
             format!("https://y.gtimg.cn/music/photo_new/T002R500x500M000{album_mid}.jpg")
         },
         duration: number(&v["interval"]).ok_or_else(|| AppError::protocol("interval"))?,
-        vip: v
-            .pointer("/pay/pay_play")
-            .and_then(number)
-            .is_some_and(|n| n > 0),
+        vip: ["pay_play", "pay_month"].iter().any(|key| {
+            number(&v["pay"][key]).is_some_and(|value| value > 0)
+        }),
         artists: singers
             .iter()
             .map(crate::catalog::map_artist)
@@ -573,6 +572,8 @@ mod tests {
         assert_eq!(track.duration, 180);
         assert_eq!(track.media_mid, "media1");
         assert!(track.vip);
+        let monthly = map_track(&json!({"id":13,"mid":"abc13","title":"Song","singer":[{"name":"Artist"}],"album":{"mid":"album1","title":"Album"},"file":{"media_mid":"media1"},"interval":180,"pay":{"pay_month":1}})).unwrap();
+        assert!(monthly.vip);
         assert!(map_track(&json!({"id":12})).is_err());
     }
     #[test]
