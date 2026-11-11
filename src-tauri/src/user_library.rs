@@ -5,7 +5,6 @@ use crate::{
     models::*,
 };
 use rusqlite::{params, OptionalExtension};
-use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn now() -> u64 {
@@ -46,6 +45,7 @@ impl Database {
             .execute("DELETE FROM search_history WHERE owner=?1", [owner])?;
         Ok(())
     }
+    #[cfg(test)]
     pub fn saved_catalog(&self, owner: &str) -> Result<SavedCatalog> {
         let db = self.connection()?;
         let mut statement=db.prepare("SELECT kind,payload FROM saved_catalog WHERE owner=?1 ORDER BY saved_at DESC,rowid DESC")?;
@@ -65,26 +65,36 @@ impl Database {
         }
         Ok(result)
     }
-    pub fn save_catalog<T: Serialize>(
-        &self,
-        owner: &str,
-        kind: &str,
-        mid: &str,
-        item: &T,
-        saved: bool,
-    ) -> Result<()> {
-        validate_mid(mid)?;
-        if !matches!(kind, "artist" | "album") {
-            return Err(AppError::new("INVALID_CATALOG_KIND", "收藏类型无效。"));
-        }
-        if saved {
-            self.connection()?.execute("INSERT INTO saved_catalog(owner,kind,mid,payload,saved_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(owner,kind,mid) DO UPDATE SET payload=excluded.payload,saved_at=excluded.saved_at", params![owner,kind,mid,serde_json::to_string(item)?,now()])?;
-        } else {
-            self.connection()?.execute(
-                "DELETE FROM saved_catalog WHERE owner=?1 AND kind=?2 AND mid=?3",
-                params![owner, kind, mid],
+    pub fn replace_saved_catalog(&self, owner: &str, catalog: &SavedCatalog) -> Result<()> {
+        let mut db = self.connection()?;
+        let tx = db.transaction()?;
+        tx.execute("DELETE FROM saved_catalog WHERE owner=?1", [owner])?;
+        let timestamp = now();
+        for (index, artist) in catalog.artists.iter().enumerate() {
+            validate_mid(&artist.mid)?;
+            tx.execute(
+                "INSERT INTO saved_catalog(owner,kind,mid,payload,saved_at) VALUES(?1,'artist',?2,?3,?4)",
+                params![
+                    owner,
+                    artist.mid,
+                    serde_json::to_string(artist)?,
+                    timestamp.saturating_sub(index as u64)
+                ],
             )?;
         }
+        for (index, album) in catalog.albums.iter().enumerate() {
+            validate_mid(&album.mid)?;
+            tx.execute(
+                "INSERT INTO saved_catalog(owner,kind,mid,payload,saved_at) VALUES(?1,'album',?2,?3,?4)",
+                params![
+                    owner,
+                    album.mid,
+                    serde_json::to_string(album)?,
+                    timestamp.saturating_sub(index as u64)
+                ],
+            )?;
+        }
+        tx.commit()?;
         Ok(())
     }
     pub fn lyric_offset(&self, owner: &str, mid: &str) -> Result<i64> {
@@ -158,8 +168,14 @@ mod tests {
             name: "Artist".into(),
             image: String::new(),
         };
-        db.save_catalog("a", "artist", &artist.mid, &artist, true)
-            .unwrap();
+        db.replace_saved_catalog(
+            "a",
+            &SavedCatalog {
+                artists: vec![artist.clone()],
+                albums: vec![],
+            },
+        )
+        .unwrap();
         db.record_search("a", "Artist").unwrap();
         db.save_lyric_offset("a", "song", 150).unwrap();
         assert!(db.saved_catalog("b").unwrap().artists.is_empty());
@@ -174,6 +190,54 @@ mod tests {
             .cached::<ArtistRef>("a", "profile", 60)
             .unwrap()
             .is_some());
+    }
+    #[test]
+    fn cloud_favorites_replace_local_cache_in_order() {
+        let db = Database::open(std::path::Path::new(":memory:")).unwrap();
+        let first = ArtistRef {
+            mid: "first".into(),
+            name: "First".into(),
+            image: String::new(),
+        };
+        let second = ArtistRef {
+            mid: "second".into(),
+            name: "Second".into(),
+            image: String::new(),
+        };
+        let album = CatalogAlbum {
+            mid: "album".into(),
+            name: "Album".into(),
+            artists: vec![first.clone()],
+            credit: "First".into(),
+            cover: String::new(),
+            publish_date: String::new(),
+            album_type: String::new(),
+        };
+        db.replace_saved_catalog(
+            "a",
+            &SavedCatalog {
+                artists: vec![first.clone(), second.clone()],
+                albums: vec![album],
+            },
+        )
+        .unwrap();
+        let loaded = db.saved_catalog("a").unwrap();
+        assert_eq!(loaded.artists[0].mid, "first");
+        assert_eq!(loaded.artists[1].mid, "second");
+        assert_eq!(loaded.albums[0].mid, "album");
+        assert!(db.saved_catalog("b").unwrap().artists.is_empty());
+
+        db.replace_saved_catalog(
+            "a",
+            &SavedCatalog {
+                artists: vec![second],
+                albums: vec![],
+            },
+        )
+        .unwrap();
+        let loaded = db.saved_catalog("a").unwrap();
+        assert_eq!(loaded.artists.len(), 1);
+        assert!(loaded.albums.is_empty());
     }
     #[test]
     fn search_history_is_recent_first_unique_and_bounded() {

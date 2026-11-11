@@ -6,6 +6,7 @@ mod db;
 mod desktop;
 mod downloads;
 pub mod error;
+mod favorites;
 mod login;
 mod mobile;
 mod mix_audio;
@@ -37,6 +38,7 @@ struct AppState {
     login_generation: AtomicU64,
     login: Mutex<Option<login::QrSession>>,
     renewal: tokio::sync::Mutex<()>,
+    favorites: tokio::sync::Mutex<()>,
     downloads: Mutex<HashMap<String, Arc<tokio::sync::watch::Sender<bool>>>>,
     download_slots: tokio::sync::Semaphore,
 }
@@ -736,47 +738,75 @@ fn clear_search_history(window: WebviewWindow, state: State<'_, AppState>) -> Re
 }
 
 #[tauri::command]
-fn get_saved_catalog(window: WebviewWindow, state: State<'_, AppState>) -> Result<SavedCatalog> {
+async fn get_saved_catalog(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<SavedCatalog> {
     main_window(&window)?;
-    state.db.saved_catalog(&state.snapshot()?.credentials.uin)
+    let _favorites = state.favorites.lock().await;
+    let snapshot = state.snapshot()?;
+    let catalog = state.qq.favorite_catalog(&snapshot.credentials).await?;
+    state.unchanged(&snapshot)?;
+    state
+        .db
+        .replace_saved_catalog(&snapshot.credentials.uin, &catalog)?;
+    Ok(catalog)
 }
 
 #[tauri::command]
-fn save_catalog_artist(
+async fn save_catalog_artist(
     window: WebviewWindow,
     state: State<'_, AppState>,
     artist: ArtistRef,
     saved: bool,
 ) -> Result<SavedCatalog> {
     main_window(&window)?;
+    let _favorites = state.favorites.lock().await;
     let snapshot = state.snapshot()?;
-    state.db.save_catalog(
-        &snapshot.credentials.uin,
-        "artist",
-        &artist.mid,
-        &artist,
-        saved,
-    )?;
-    state.db.saved_catalog(&snapshot.credentials.uin)
+    state
+        .qq
+        .set_favorite_artist(&snapshot.credentials, &artist, saved)
+        .await?;
+    let catalog = state.qq.favorite_catalog(&snapshot.credentials).await?;
+    if catalog.artists.iter().any(|item| item.mid == artist.mid) != saved {
+        return Err(AppError::new(
+            "QQ_WRITE_UNCONFIRMED",
+            "QQ 音乐没有确认歌手关注状态，请刷新后重试。",
+        ));
+    }
+    state.unchanged(&snapshot)?;
+    state
+        .db
+        .replace_saved_catalog(&snapshot.credentials.uin, &catalog)?;
+    Ok(catalog)
 }
 
 #[tauri::command]
-fn save_catalog_album(
+async fn save_catalog_album(
     window: WebviewWindow,
     state: State<'_, AppState>,
     album: CatalogAlbum,
     saved: bool,
 ) -> Result<SavedCatalog> {
     main_window(&window)?;
+    let _favorites = state.favorites.lock().await;
     let snapshot = state.snapshot()?;
-    state.db.save_catalog(
-        &snapshot.credentials.uin,
-        "album",
-        &album.mid,
-        &album,
-        saved,
-    )?;
-    state.db.saved_catalog(&snapshot.credentials.uin)
+    state
+        .qq
+        .set_favorite_album(&snapshot.credentials, &album, saved)
+        .await?;
+    let catalog = state.qq.favorite_catalog(&snapshot.credentials).await?;
+    if catalog.albums.iter().any(|item| item.mid == album.mid) != saved {
+        return Err(AppError::new(
+            "QQ_WRITE_UNCONFIRMED",
+            "QQ 音乐没有确认专辑收藏状态，请刷新后重试。",
+        ));
+    }
+    state.unchanged(&snapshot)?;
+    state
+        .db
+        .replace_saved_catalog(&snapshot.credentials.uin, &catalog)?;
+    Ok(catalog)
 }
 
 #[tauri::command]
@@ -842,6 +872,7 @@ pub fn run() {
                 login_generation: AtomicU64::new(0),
                 login: Mutex::new(None),
                 renewal: tokio::sync::Mutex::new(()),
+                favorites: tokio::sync::Mutex::new(()),
                 downloads: Mutex::new(HashMap::new()),
                 download_slots: tokio::sync::Semaphore::new(2),
             });

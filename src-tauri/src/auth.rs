@@ -148,6 +148,23 @@ impl Credentials {
             .collect::<Vec<_>>()
             .join("; ")
     }
+    /// Encrypted UIN used by the musicasset read APIs. The value arrives with
+    /// the login response and is kept in the refresh payload; older imported
+    /// cookies may carry it as `euin`.
+    pub fn encrypt_uin(&self) -> String {
+        self.refresh
+            .as_ref()
+            .and_then(|value| value["encryptUin"].as_str())
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .or_else(|| {
+                self.cookie.split(';').find_map(|pair| {
+                    let (key, value) = pair.trim().split_once('=')?;
+                    (key == "euin" && !value.is_empty()).then(|| value.to_owned())
+                })
+            })
+            .unwrap_or_default()
+    }
     pub fn csrf_token(&self) -> String {
         (self.music_key.bytes().fold(5381u32, |hash, c| {
             hash.wrapping_mul(33).wrapping_add(c as u32)
@@ -205,6 +222,18 @@ mod tests {
         assert!(!loaded.cookie_header().contains("listener_refresh"));
         assert!(!loaded.cookie_header().contains("test-refresh"));
         assert_eq!(loaded.uin, "123");
+    }
+    #[test]
+    fn encrypted_uin_stays_in_the_keychain_payload() {
+        let credentials = Credentials::from_login(
+            json!({"musicid":123,"musickey":"test-key","encryptUin":"encrypted-uin"}),
+            2,
+        )
+        .unwrap();
+        assert_eq!(credentials.encrypt_uin(), "encrypted-uin");
+        let imported = Credentials::parse("uin=123; qm_keyst=test-key; euin=cookie-uin".into())
+            .unwrap();
+        assert_eq!(imported.encrypt_uin(), "cookie-uin");
     }
     #[test]
     fn legacy_sessions_need_a_new_scan_instead_of_invented_refresh_tokens() {
