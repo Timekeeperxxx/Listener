@@ -10,6 +10,7 @@ mod login;
 mod mobile;
 pub mod models;
 pub mod qq;
+mod recommendations;
 mod updates;
 mod user_library;
 
@@ -668,6 +669,50 @@ async fn get_search_playlists(
 }
 
 #[tauri::command]
+async fn get_daily_recommendation(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    refresh: bool,
+) -> Result<DailyRecommendation> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let day = recommendations::current_day()?;
+    if !refresh {
+        if let Some(daily) = state.db.cached::<DailyRecommendation>(
+            &snapshot.credentials.uin,
+            "recommendations:daily",
+            24 * 3600,
+        )? {
+            if daily.day == day {
+                state.unchanged(&snapshot)?;
+                return Ok(daily);
+            }
+        }
+    }
+    let daily = state.qq.daily_recommendation(&snapshot.credentials).await?;
+    state.unchanged(&snapshot)?;
+    if daily.day != recommendations::current_day()? {
+        return Err(AppError::new("DAILY_CHANGED", "每日推荐已跨日，请刷新。"));
+    }
+    state
+        .db
+        .cache(&snapshot.credentials.uin, "recommendations:daily", &daily)?;
+    Ok(daily)
+}
+
+#[tauri::command]
+async fn get_recommendation_radio(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<Vec<Track>> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let tracks = state.qq.recommendation_radio(&snapshot.credentials).await?;
+    state.unchanged(&snapshot)?;
+    Ok(tracks)
+}
+
+#[tauri::command]
 fn get_search_history(window: WebviewWindow, state: State<'_, AppState>) -> Result<Vec<String>> {
     main_window(&window)?;
     state.db.search_history(&state.snapshot()?.credentials.uin)
@@ -856,6 +901,8 @@ pub fn run() {
             updates::install_app_update,
             get_search_tracks,
             get_search_playlists,
+            get_daily_recommendation,
+            get_recommendation_radio,
             get_search_history,
             record_search,
             clear_search_history,

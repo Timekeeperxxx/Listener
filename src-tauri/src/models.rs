@@ -100,6 +100,14 @@ pub struct PlaylistPage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyRecommendation {
+    pub playlist: Playlist,
+    pub tracks: Vec<Track>,
+    /// Calendar day in Asia/Shanghai, counted from the Unix epoch.
+    pub day: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
     pub playlists: Vec<Playlist>,
     pub warnings: Vec<String>,

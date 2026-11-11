@@ -1,10 +1,11 @@
 import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core'
+import type { DailyRecommendation } from '../types'
 import type { DesktopStatus, SavedCatalog, StorageUsage, UpdateInfo, AlbumDetail, ArtistDetail, ArtistRef, CatalogAlbum, CatalogPage, AppSettings, Download, Library, LoginPoll, LoginQr, Playlist, PlaylistPage, PlaybackSource, PlaybackState, Profile, RawLyrics, Track } from '../types'
 
 export const desktop = isTauri()
 
 let renewal: Promise<void> | null = null
-const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists'])
+const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists', 'get_daily_recommendation', 'get_recommendation_radio'])
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (!desktop) return Promise.reject({ code: 'DESKTOP_REQUIRED', message: '请在 Listener macOS 应用中连接 QQ 音乐。' })
   try { return await invoke<T>(command, args) }
@@ -24,6 +25,8 @@ export const api = {
   cancelLogin: () => call<void>('cancel_login'),
   logout: () => call<void>('logout'),
   library: () => call<Library>('get_library'),
+  dailyRecommendation: (refresh: boolean) => call<DailyRecommendation>('get_daily_recommendation', { refresh }),
+  recommendationRadio: () => call<Track[]>('get_recommendation_radio'),
   playlist: (id: string, offset: number) => call<PlaylistPage>('get_playlist', { id, offset }),
   search: (keyword: string, page: number) => call<Track[]>('search_tracks', { keyword, page }),
   catalogArtists: (keyword: string, offset: number, area: number) => call<CatalogPage<ArtistRef>>('get_catalog_artists', { keyword, offset, area }),

@@ -63,6 +63,13 @@ export interface PlaylistPage {
   hasMore: boolean
 }
 
+export interface DailyRecommendation {
+  playlist: Playlist
+  tracks: Track[]
+  /** Calendar day in Asia/Shanghai, counted from the Unix epoch. */
+  day: number
+}
+
 export interface Library {
   playlists: Playlist[]
   warnings: string[]
