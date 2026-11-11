@@ -168,6 +168,8 @@ pub struct Settings {
     pub lyrics: LyricSettings,
     #[serde(default = "enabled")]
     pub preload_next: bool,
+    #[serde(default)]
+    pub smart_mix: bool,
     #[serde(default = "enabled")]
     pub close_to_tray: bool,
     #[serde(default)]
@@ -256,6 +258,7 @@ impl Default for Settings {
             audio_quality: AudioQuality::Auto,
             lyrics: LyricSettings::default(),
             preload_next: true,
+            smart_mix: false,
             close_to_tray: true,
             shortcuts: ShortcutSettings::default(),
             cache_limit_mb: cache_limit(),

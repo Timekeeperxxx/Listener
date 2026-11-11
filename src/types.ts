@@ -95,6 +95,7 @@ export interface AppSettings {
   lyricOffset: number
   audioQuality: 'auto' | 'standard' | 'high' | 'lossless' | 'hires'
   lyrics: LyricSettings
+  smartMix: boolean
   preloadNext: boolean
   closeToTray: boolean
   shortcuts: ShortcutSettings

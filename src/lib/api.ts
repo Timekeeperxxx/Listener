@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core'
 import type { DailyRecommendation } from '../types'
+import type { QqMixPlan } from './qq-automix'
 import type { DesktopStatus, SavedCatalog, StorageUsage, UpdateInfo, AlbumDetail, ArtistDetail, ArtistRef, CatalogAlbum, CatalogPage, AppSettings, Download, Library, LoginPoll, LoginQr, Playlist, PlaylistPage, PlaybackSource, PlaybackState, Profile, RawLyrics, Track } from '../types'
 
 export const desktop = isTauri()
@@ -53,6 +54,7 @@ export const api = {
   quit: () => call<void>('quit_app'),
   checkUpdate: () => call<UpdateInfo | null>('check_app_update'),
   installUpdate: () => call<void>('install_app_update'),
+  qqMixPlan: (from: Track, to: Track) => call<QqMixPlan>('get_qq_mix_plan', { from, to }),
   source: async (track: Track) => {
     const source = await call<PlaybackSource>('get_source', { track })
     return source.local ? { ...source, url: convertFileSrc(source.url) } : source

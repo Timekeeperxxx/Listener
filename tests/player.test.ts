@@ -4,14 +4,18 @@ import { watch } from 'vue'
 import type { PlaybackSource, PlaybackState, RawLyrics, Track } from '../src/types'
 import type { ParsedLyrics } from '../src/lib/lyrics'
 
-const api = vi.hoisted(() => ({ source: vi.fn(), lyrics: vi.fn(), record: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), playback: vi.fn(), savePlayback: vi.fn(), lyricOffset: vi.fn(), saveLyricOffset: vi.fn() }))
+const api = vi.hoisted(() => ({ source: vi.fn(), qqMixPlan: vi.fn(), lyrics: vi.fn(), record: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), playback: vi.fn(), savePlayback: vi.fn(), lyricOffset: vi.fn(), saveLyricOffset: vi.fn() }))
 vi.mock('../src/lib/api', () => ({ api, desktop: true, errorMessage: (e: { message: string }) => e.message }))
 const parseInWorker = vi.hoisted(() => vi.fn())
 vi.mock('../src/lib/lyric-client', () => ({ parseInWorker }))
 
+const graph = vi.hoisted(() => ({ prepare: vi.fn(), resume: vi.fn(), fade: vi.fn(), finish: vi.fn(), release: vi.fn(), dispose: vi.fn(), silence: vi.fn(), has: vi.fn() }))
+vi.mock('../src/lib/qq-automix', () => ({ QqAutoMix: class { context = { state: 'suspended' }; prepare = graph.prepare; resume = graph.resume; fade = graph.fade; finish = graph.finish; release = graph.release; dispose = graph.dispose; silence = graph.silence; has = graph.has } }))
 class TestAudio extends EventTarget {
   static latest: TestAudio
   static instances: TestAudio[] = []
+  paused = true
+  playbackRate = 1
   src = ''
   currentTime = 0
   volume = 0.7
@@ -19,11 +23,11 @@ class TestAudio extends EventTarget {
   preload = ''
   error = null
   constructor() { super(); TestAudio.latest = this; TestAudio.instances.push(this) }
-  pause() { this.dispatchEvent(new Event('pause')) }
+  pause() { this.paused = true; this.dispatchEvent(new Event('pause')) }
   load() { this.currentTime = 0 }
   removeAttribute(name: string) { if (name === 'src') this.src = '' }
   getAttribute(name: string) { return name === 'src' ? this.src : null }
-  play() { this.dispatchEvent(new Event('loadedmetadata')); this.dispatchEvent(new Event('playing')); return Promise.resolve() }
+  play() { this.paused = false; this.dispatchEvent(new Event('loadedmetadata')); this.dispatchEvent(new Event('playing')); return Promise.resolve() }
 }
 const track = (id: number): Track => ({ id, mid: `mid${id}`, mediaMid: `media${id}`, title: `Track ${id}`, artist: 'Artist', album: 'Album', cover: '', duration: 120, vip: false })
 const rawLyrics: RawLyrics = { word: '', line: '[00:40.00]Restored lyric', translation: '', romanization: '', warnings: [] }
@@ -183,7 +187,7 @@ describe('playback request ownership', () => {
     expect(player.queue.map(t => t.id)).toEqual([1])
     expect(player.time).toBe(37000)
     expect(player.playing).toBe(true)
-    expect(api.source).toHaveBeenCalledTimes(1)
+    expect(api.source.mock.calls.filter(([song]) => song.mid === 'mid1')).toHaveLength(1)
   })
 
   it('removing a requested next song cannot leave a dangling next selection', async () => {
@@ -444,12 +448,12 @@ describe('playback request ownership', () => {
     expect(api.source).toHaveBeenCalledTimes(1)
   })
 
-  it('preloads the planned next audio once and reuses its media buffer when switching', async () => {
+  it('preloads the next song early and reuses its media when switching', async () => {
     const { usePlayerStore } = await import('../src/stores/player')
     const player = usePlayerStore()
     await player.play(track(1), [track(1), track(2), track(3)])
     const active = TestAudio.latest
-    active.currentTime = 105
+    active.currentTime = 2
     active.dispatchEvent(new Event('timeupdate'))
     await vi.waitFor(() => expect(player.preloadState).toBe('ready'))
     const warm = TestAudio.latest
@@ -457,7 +461,7 @@ describe('playback request ownership', () => {
     warm.dispatchEvent(new Event('playing'))
     warm.dispatchEvent(new Event('timeupdate'))
     expect(player.current?.id).toBe(1)
-    expect(player.time).toBe(105000)
+    expect(player.time).toBe(2000)
     active.dispatchEvent(new Event('timeupdate'))
     expect(api.source).toHaveBeenCalledTimes(2)
     await player.next()
@@ -550,5 +554,138 @@ describe('playback request ownership', () => {
       expect(TestAudio.latest.src).toBe('')
       player.reset()
     } finally { vi.useRealTimers() }
+  })
+})
+
+describe('QQ automatic transitions', () => {
+  const plan = { out: 111, input: 0.5, duration: 8, rate: 1.2, mode: 'amfilter2' }
+  beforeEach(() => {
+    setActivePinia(createPinia()); vi.resetAllMocks(); TestAudio.instances = []
+    vi.stubGlobal('Audio', TestAudio); vi.stubGlobal('navigator', {}); vi.stubGlobal('requestAnimationFrame', () => 1); vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    api.source.mockImplementation(async (song: Track) => ({ quality: '320 kbps', local: false, url: `https://example.test/${song.mid}.mp3` }))
+    api.lyrics.mockImplementation(() => new Promise(() => {})); api.lyricOffset.mockResolvedValue(0)
+    api.record.mockResolvedValue(undefined); api.savePlayback.mockResolvedValue(undefined)
+    api.qqMixPlan.mockResolvedValue(plan)
+    graph.prepare.mockImplementation((media: TestAudio, url: string) => { media.src = url; media.load() })
+    graph.has.mockReturnValue(true); graph.dispose.mockResolvedValue(undefined); graph.resume.mockResolvedValue(undefined)
+  })
+  const flush = async () => { for (let i = 0; i < 15; i++) await Promise.resolve() }
+  it('starts the prepared track before the old track ends and keeps the lyric clock on the incoming audio', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true
+    await player.play(track(1), [track(1), track(2)])
+    const old = TestAudio.latest; old.currentTime = 60; old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(player.preloadState).toBe('ready')
+    expect(api.qqMixPlan).toHaveBeenCalledWith(track(1), track(2))
+    old.currentTime = 111; old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(player.current?.mid).toBe('mid2'); expect(graph.fade).toHaveBeenCalledOnce()
+    expect(old.paused).toBe(false); expect(player.mixMode).toBe('QQ 自动衔接')
+    expect(graph.fade).toHaveBeenCalledWith(old, TestAudio.latest, plan, 0, expect.any(Function))
+    expect(TestAudio.latest.playbackRate).toBe(1.2)
+    expect(TestAudio.latest.currentTime).toBe(0.5)
+    TestAudio.latest.currentTime = 2.5
+    expect(player.readLyricTime()).toBe(2500)
+    player.pause(); expect(graph.finish).toHaveBeenCalled(); expect(player.playing).toBe(false)
+    player.reset(); expect(graph.dispose).toHaveBeenCalledOnce()
+  })
+  it('streams the new song and warms its successor without waiting for QQ mix cues', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const pending = deferred<typeof plan>()
+    api.qqMixPlan.mockReturnValueOnce(pending.promise)
+    const player = usePlayerStore()
+    player.settings.smartMix = true
+    await player.play(track(1), [track(1), track(2)])
+    const active = TestAudio.latest
+    expect(player.playing).toBe(true)
+    expect(graph.prepare).toHaveBeenCalledWith(active, 'https://example.test/mid1.mp3')
+    active.currentTime = 2
+    active.dispatchEvent(new Event('timeupdate'))
+    await flush()
+    expect(player.preloadState).toBe('ready')
+    expect(api.qqMixPlan).toHaveBeenCalledWith(track(1), track(2))
+    await player.next()
+    expect(player.current?.mid).toBe('mid2')
+    expect(api.source).toHaveBeenCalledTimes(2)
+    pending.resolve(plan)
+    await flush()
+    expect(graph.fade).not.toHaveBeenCalled()
+    player.reset()
+  })
+  it('a seek cancels the fade and keeps the current track position', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true; await player.play(track(1))
+    player.seek(40); expect(graph.finish).toHaveBeenCalled(); expect(player.readLyricTime()).toBe(40000)
+    player.reset()
+  })
+  it('plays immediately on manual next without substituting a crossfade', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true
+    await player.play(track(1), [track(1), track(2)])
+    const outgoing = TestAudio.latest
+    outgoing.currentTime = 20
+    await player.next()
+    expect(player.current?.mid).toBe('mid2')
+    expect(outgoing.paused).toBe(true)
+    expect(TestAudio.latest.currentTime).toBe(0)
+    expect(graph.fade).not.toHaveBeenCalled()
+    player.reset()
+  })
+  it('does not promote a pending mix when the user pauses', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true; await player.play(track(1), [track(1), track(2)])
+    const outgoing = TestAudio.latest
+    outgoing.dispatchEvent(new Event('timeupdate')); await flush()
+    const pending = deferred<void>()
+    const play = vi.spyOn(TestAudio.latest, 'play').mockReturnValueOnce(pending.promise)
+    outgoing.currentTime = 111
+    outgoing.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(play).toHaveBeenCalledOnce()
+    player.pause()
+    pending.resolve(); await flush()
+    expect(player.current?.mid).toBe('mid1')
+    expect(graph.fade).not.toHaveBeenCalled()
+    player.reset()
+  })
+  it('does not mix when stopping after the current song', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true; await player.play(track(1), [track(1), track(2)])
+    const old = TestAudio.latest; old.currentTime = 60; old.dispatchEvent(new Event('timeupdate')); await flush()
+    player.setSleepTimer('track'); old.currentTime = 111; old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(graph.fade).not.toHaveBeenCalled(); expect(player.current?.mid).toBe('mid1'); player.reset()
+  })
+  it('keeps the original track boundary when playing an album in order', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore(); player.settings.smartMix = true
+    const album = [track(1), track(2)].map(song => ({ ...song, albumMid: 'album' }))
+    await player.play(album[0], album)
+    const old = TestAudio.latest; old.currentTime = 60; old.dispatchEvent(new Event('timeupdate')); await flush()
+    old.currentTime = 111; old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(graph.fade).not.toHaveBeenCalled()
+    old.dispatchEvent(new Event('ended')); await flush()
+    expect(player.current?.mid).toBe('mid2')
+    expect(graph.fade).not.toHaveBeenCalled(); player.reset()
+  })
+  it('shows a QQ plan failure and advances normally at the end', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    api.qqMixPlan.mockRejectedValue(new Error('没有衔接方案'))
+    const player = usePlayerStore(); player.settings.smartMix = true
+    await player.play(track(1), [track(1), track(2)])
+    const old = TestAudio.latest
+    old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(player.mixError).toContain('没有衔接方案')
+    expect(player.preloadState).toBe('ready')
+    old.currentTime = 111; old.dispatchEvent(new Event('timeupdate')); await flush()
+    expect(player.current?.mid).toBe('mid1')
+    old.dispatchEvent(new Event('ended')); await flush()
+    expect(player.current?.mid).toBe('mid2')
+    expect(graph.fade).not.toHaveBeenCalled()
+    player.reset()
+  })
+  it('drops an in-flight source on logout without creating a DSP graph', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const pending = deferred<PlaybackSource>(); api.source.mockReturnValueOnce(pending.promise)
+    const player = usePlayerStore(); player.settings.smartMix = true; const play = player.play(track(1)); player.reset()
+    pending.resolve({ url: 'https://example.test/stale.mp3', quality: '320 kbps' }); await play
+    expect(player.current).toBeNull(); expect(graph.prepare).not.toHaveBeenCalled()
   })
 })

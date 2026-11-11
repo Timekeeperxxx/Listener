@@ -8,6 +8,7 @@ mod downloads;
 pub mod error;
 mod login;
 mod mobile;
+mod mix_audio;
 pub mod models;
 pub mod qq;
 mod recommendations;
@@ -887,6 +888,7 @@ pub fn run() {
             get_album_detail,
             get_catalog_track,
             get_source,
+            mix_audio::get_qq_mix_plan,
             get_lyrics,
             get_history,
             record_play,

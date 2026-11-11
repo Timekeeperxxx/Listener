@@ -2,9 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { api, desktop, errorMessage } from '../lib/api'
 import { parseInWorker } from '../lib/lyric-client'
+import type { ParsedLyrics } from '../lib/lyrics'
 import { defaultSettings } from '../lib/preferences'
+import type { QqAutoMix, QqMixPlan } from '../lib/qq-automix'
 import type { LyricLine } from '@applemusic-like-lyrics/core'
 import type { AppSettings, LoadState, PlaybackSource, PlaybackState, ShortcutSettings, Track } from '../types'
+
+type LyricsRequest = Promise<ParsedLyrics | { error: string }>
 
 export const usePlayerStore = defineStore('player', () => {
   const current = shallowRef<Track | null>(null)
@@ -38,18 +42,43 @@ export const usePlayerStore = defineStore('player', () => {
   const preloadState = ref<LoadState>('idle')
   const preloadError = ref('')
   const upcoming = shallowRef<Track | null>(null)
+  const mixState = ref<LoadState>('idle'), mixError = ref(''), mixMode = ref('')
+  let mixer: QqAutoMix | null = null
+  let startingBlend: HTMLAudioElement | null = null
+  let prepareTask: Promise<void> | undefined
+  async function getMixer(request: number) {
+    if (!mixer) {
+      const { QqAutoMix } = await import('../lib/qq-automix')
+      if (request !== generation) throw new Error('播放请求已变化')
+      mixer ??= new QqAutoMix()
+    }
+    return mixer
+  }
+  function releaseMedia(media: HTMLAudioElement) {
+    if (mixer?.release(media)) return
+    media.pause(); media.removeAttribute('src'); media.load()
+  }
+  function stopBlend() {
+    mixer?.finish(); mixMode.value = ''
+  }
   let audio = new Audio()
   audio.preload = 'metadata'
   let generation = 0
   let frame = 0
   let lastUiFrame = 0
   let recorded = false
-  let prepared: { mid: string; media: HTMLAudioElement; source: PlaybackSource; request: number } | null = null
+  let prepared: {
+    mid: string; media: HTMLAudioElement; source: PlaybackSource; request: number
+    lyrics?: LyricsRequest
+    plan: QqMixPlan | null
+  } | null = null
   let preparingFor = ''
   let preparation = 0
   function cancelPreparation() {
     preparation++
-    if (prepared) { prepared.media.removeAttribute('src'); prepared.media.load() }
+    if (prepared) releaseMedia(prepared.media)
+    prepareTask = undefined
+    startingBlend = null
     prepared = null; preparingFor = ''; preloadState.value = 'idle'; preloadError.value = ''
   }
   function planNext() {
@@ -61,21 +90,75 @@ export const usePlayerStore = defineStore('player', () => {
       upcoming.value = queue.value[(index + 1 + Math.floor(Math.random() * (queue.value.length - 1))) % queue.value.length]
     } else upcoming.value = index + 1 < queue.value.length ? queue.value[index + 1] : repeat.value === 'all' ? queue.value[0] : null
   }
-  async function prepareNext() {
-    const track = upcoming.value
-    if (!settings.value.preloadNext || !playing.value || !track || repeat.value === 'one' || preparingFor || !audio.getAttribute('src') || duration.value - audio.currentTime > 20) return
+  function prepareNext() {
+    if (prepareTask) return prepareTask
+    const track = upcoming.value, from = current.value, outgoing = audio
+    if (!playing.value || buffering.value || !from || !track || repeat.value === 'one' || preparingFor || !outgoing.getAttribute('src')) return
+    const graph = settings.value.smartMix && mixer?.has(outgoing) ? mixer : null
+    if (mixMode.value || (!graph && !settings.value.preloadNext)) return
+    const orderedAlbum = from.albumMid && from.albumMid === track.albumMid && !shuffle.value && !nextMid.value
+      && queue.value[currentIndex.value + 1]?.mid === track.mid
     const request = generation, version = ++preparation
-    preparingFor = track.mid; preloadState.value = 'loading'; preloadError.value = ''
+    preparingFor = track.mid
+    preloadState.value = 'loading'
+    preloadError.value = ''
+    prepareTask = prepare(track, from, graph, Boolean(graph && !orderedAlbum), request, version)
+    return prepareTask
+  }
+
+  async function prepare(track: Track, from: Track, graph: QqAutoMix | null, requestPlan: boolean, request: number, version: number) {
+    let media: HTMLAudioElement | undefined
     try {
+      const mixRequest = requestPlan ? api.qqMixPlan(from, track).then(
+        plan => ({ plan }),
+        cause => ({ error: errorMessage(cause) }),
+      ) : null
       const source = await api.source(track)
       if (request !== generation || version !== preparation) return
-      const media = new Audio(); media.preload = 'auto'; media.muted = true
+      media = new Audio()
+      media.preload = 'auto'
+      media.muted = true
       bindAudio(media)
-      media.src = source.url; media.load()
-      prepared = { mid: track.mid, media, source, request }; preloadState.value = 'ready'
+      if (graph) graph.prepare(media, source.url)
+      else {
+        media.src = source.url
+        media.load()
+      }
+      const warm: NonNullable<typeof prepared> = { mid: track.mid, media, source, request, plan: null }
+      prepared = warm
+      preloadState.value = 'ready'
+      if (!mixRequest) return
+      const result = await mixRequest
+      if (prepared !== warm) return
+      if ('error' in result) {
+        reportMixError(`QQ 自动衔接不可用：${result.error}`)
+        return
+      }
+      const { plan } = result
+      if (plan.out + plan.duration > duration.value + 0.25
+        || plan.input + plan.duration * plan.rate > track.duration + 1) {
+        reportMixError('QQ 返回的衔接点超出音频时长。')
+        return
+      }
+      if (plan.input > 0) media.currentTime = plan.input
+      warm.plan = plan
+      warm.lyrics = api.lyrics(track).then(raw => parseInWorker(raw, track.duration)).catch(cause => ({ error: errorMessage(cause) }))
+      mixState.value = 'ready'
+      mixError.value = ''
     } catch (cause) {
-      if (request === generation && version === preparation) { preloadState.value = 'error'; preloadError.value = errorMessage(cause) }
+      if (media) releaseMedia(media)
+      if (request !== generation || version !== preparation) return
+      preloadState.value = 'error'
+      preloadError.value = errorMessage(cause)
+      if (graph) reportMixError(`QQ 自动衔接准备失败：${preloadError.value}`)
+    } finally {
+      if (version === preparation) prepareTask = undefined
     }
+  }
+  function reportMixError(message: string) {
+    mixError.value = message
+    mixState.value = 'error'
+    notice.value = message
   }
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let settingsSave = Promise.resolve()
@@ -106,7 +189,9 @@ export const usePlayerStore = defineStore('player', () => {
       buffering.value = false
       lyricState.value = 'idle'
     }
+    stopBlend()
     audio.pause()
+    cancelPreparation()
   }
   function checkSleepTimer() {
     sleepNow.value = Date.now()
@@ -131,11 +216,18 @@ export const usePlayerStore = defineStore('player', () => {
     return Math.max(0, Math.round(position + settings.value.lyricOffset + trackOffset.value))
   }
   function tick(now: number) {
+    checkNaturalBlend()
     if (now - lastUiFrame >= 100) {
       syncTime()
       lastUiFrame = now
     }
     if (playing.value && visualActive.value) frame = requestAnimationFrame(tick)
+  }
+  function checkNaturalBlend() {
+    const track = upcoming.value, plan = prepared?.plan
+    if (startingBlend || sleepAfterTrack.value || !track || !plan || !playing.value) return
+    const elapsed = audio.currentTime - plan.out
+    if (elapsed >= 0 && elapsed < Math.min(1, plan.duration * 0.35)) void blendTo(track, plan)
   }
   function updateFrame() {
     cancelAnimationFrame(frame)
@@ -204,19 +296,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   function bindAudio(element: HTMLAudioElement) {
   element.addEventListener('playing', () => {
-    if (element !== audio) return;
-    playing.value = true
-    buffering.value = false
-    playbackError.value = ''
-    updateFrame()
-    if (current.value && !recorded) {
-      recorded = true
-      api.record(current.value).catch(cause => { notice.value = `播放记录保存失败：${errorMessage(cause)}` })
-    }
+    if (element === audio) onPlaying()
   })
   element.addEventListener('pause', () => {
     if (element !== audio) return;
     playing.value = false
+    const graph = mixer
+    if (graph?.context.state === 'running') void graph.context.suspend().catch(cause => { if (graph === mixer) mixError.value = errorMessage(cause) })
     updateFrame()
     if (current.value) void persistPlayback()
   })
@@ -224,6 +310,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (element !== audio) return;
     syncTime()
     void prepareNext()
+    checkNaturalBlend()
     if (Math.abs(time.value - checkpoint) >= 5000) {
       checkpoint = time.value
       void persistPlayback()
@@ -247,8 +334,9 @@ export const usePlayerStore = defineStore('player', () => {
   element.addEventListener('error', () => {
     if (element !== audio) {
       if (prepared?.media === element) {
-        prepared = null; element.removeAttribute('src'); element.load()
+        cancelPreparation()
         preloadState.value = 'error'; preloadError.value = '下一首音频预加载失败'
+        if (settings.value.smartMix) reportMixError(preloadError.value)
       }
       return
     }
@@ -299,14 +387,19 @@ export const usePlayerStore = defineStore('player', () => {
     await saveSettings({ ...settings.value, shortcuts: value })
     settings.value = { ...settings.value, shortcuts: value }
   }
-  async function loadLyrics(track: Track, request: number) {
+  async function loadLyrics(track: Track, request: number, cached?: LyricsRequest) {
     lyricState.value = 'loading'
     lyricError.value = ''
     try {
-      const raw = await api.lyrics(track)
+      let result
+      if (cached) result = await cached
+      else {
+        const raw = await api.lyrics(track)
+        if (request !== generation) return
+        result = await parseInWorker(raw, track.duration)
+      }
       if (request !== generation) return
-      const result = await parseInWorker(raw, track.duration)
-      if (request !== generation) return
+      if ('error' in result) throw new Error(result.error)
       lyricLines.value = result.lines
       lyricMode.value = result.mode
       lyricWarnings.value = result.warnings
@@ -318,15 +411,18 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  async function play(track: Track, items?: Track[], startAt = 0) {
-    const warm = prepared && prepared.mid === track.mid && prepared.request === generation ? prepared : null
-    if (warm) prepared = null
-    cancelPreparation()
-    const request = ++generation
-    audio.pause()
-    audio.removeAttribute('src')
-    audio.load()
-    if (warm) { audio = warm.media; audio.muted = false }
+  function onPlaying() {
+    playing.value = true
+    buffering.value = false
+    playbackError.value = ''
+    updateFrame()
+    if (current.value && !recorded) {
+      recorded = true
+      api.record(current.value).catch(cause => { notice.value = `播放记录保存失败：${errorMessage(cause)}` })
+    }
+  }
+
+  function selectTrack(track: Track, items: Track[] | undefined, startAt: number, request: number, lyrics?: LyricsRequest) {
     playing.value = false
     if (items) {
       queue.value = [...new Map(items.map(item => [item.mid, item])).values()]
@@ -350,25 +446,111 @@ export const usePlayerStore = defineStore('player', () => {
     lyricMode.value = 'none'
     lyricWarnings.value = []
     void persistPlayback()
-    void loadLyrics(track, request)
+    void loadLyrics(track, request, lyrics)
     void loadTrackOffset(track, request)
+  }
+
+  function ready(track: Track, source: PlaybackSource) {
+    quality.value = source.quality
+    localSource.value = source.local === true
+    sourceState.value = 'ready'
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: track.title, artist: track.artist, album: track.album,
+        artwork: track.cover ? [{ src: track.cover, sizes: '500x500', type: 'image/jpeg' }] : [] })
+    }
+  }
+
+  async function blendTo(track: Track, plan: QqMixPlan) {
+    const warm = prepared, graph = mixer, outgoing = audio
+    if (!settings.value.smartMix || !graph || !warm || warm.mid !== track.mid || warm.request !== generation || !playing.value || outgoing.paused || outgoing.ended || startingBlend) return false
+    const media = warm.media
+    startingBlend = media
+    try {
+      if (plan.out + plan.duration > duration.value + 0.25
+        || plan.input + plan.duration * plan.rate > (Number.isFinite(media.duration) ? media.duration : track.duration) + 0.25) {
+        throw new Error('QQ 返回的衔接点超出音频时长。')
+      }
+      graph.silence(media)
+      media.playbackRate = plan.rate
+      const elapsed = () => Math.max(0, outgoing.currentTime - plan.out)
+      const entry = plan.input + elapsed() * plan.rate
+      if (Math.abs(entry - media.currentTime) > 0.065) media.currentTime = entry
+      media.muted = false
+      media.volume = settings.value.volume
+      await media.play()
+      if (prepared !== warm) return false
+      const played = elapsed()
+      if (sleepAfterTrack.value || outgoing.ended || played >= Math.min(1, plan.duration * 0.35)) {
+        cancelPreparation()
+        return false
+      }
+      const aligned = plan.input + played * plan.rate
+      if (Math.abs(aligned - media.currentTime) > 0.065) media.currentTime = aligned
+      graph.fade(outgoing, media, plan, played, () => {
+        mixMode.value = ''
+        void prepareNext()
+      })
+      prepared = null
+      cancelPreparation()
+      audio = media
+      mixMode.value = 'QQ 自动衔接'
+      selectTrack(track, undefined, media.currentTime, ++generation, warm.lyrics)
+      resumePosition = 0
+      if (Number.isFinite(media.duration)) duration.value = media.duration
+      onPlaying()
+      ready(track, warm.source)
+      return true
+    } catch (cause) {
+      if (prepared === warm) {
+        cancelPreparation()
+        reportMixError(`QQ 自动衔接失败：${errorMessage(cause)}`)
+      }
+      return false
+    } finally {
+      if (startingBlend === media) startingBlend = null
+    }
+  }
+
+  async function play(track: Track, items?: Track[], startAt = 0) {
+    const warm = prepared && prepared.mid === track.mid && prepared.request === generation && !startingBlend ? prepared : null
+    if (warm) prepared = null
+    cancelPreparation()
+    const request = ++generation
+    stopBlend()
+    releaseMedia(audio)
+    if (warm) { audio = warm.media; audio.muted = false }
+    selectTrack(track, items, startAt, request, warm?.lyrics)
     try {
       const source = warm ? warm.source : await api.source(track)
       if (request !== generation) return
       quality.value = source.quality
       localSource.value = source.local === true
-      if (!warm) audio.src = source.url
-      else if (Number.isFinite(audio.duration)) { duration.value = audio.duration; audio.currentTime = Math.min(startAt, audio.duration); resumePosition = 0 }
+      if (!warm && settings.value.smartMix) {
+        mixState.value = 'loading'
+        mixError.value = ''
+        const graph = await getMixer(request)
+        if (request !== generation) return
+        // A MediaElementAudioSource cannot be rebound after graph destruction.
+        audio = new Audio()
+        bindAudio(audio)
+        graph.prepare(audio, source.url)
+        mixState.value = 'ready'
+      } else if (!warm) {
+        audio.src = source.url
+      } else {
+        if (Number.isFinite(audio.duration)) duration.value = audio.duration
+        audio.currentTime = Math.min(startAt, duration.value)
+        resumePosition = 0
+      }
       audio.volume = settings.value.volume
+      if (mixer?.has(audio)) await mixer.resume()
       await audio.play()
       if (request !== generation) return
-      sourceState.value = 'ready'
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: track.title, artist: track.artist, album: track.album,
-          artwork: track.cover ? [{ src: track.cover, sizes: '500x500', type: 'image/jpeg' }] : [] })
-      }
+      ready(track, source)
     } catch (cause) {
       if (request !== generation) return
+      stopBlend(); releaseMedia(audio)
+      if (settings.value.smartMix) { mixState.value = 'error'; mixError.value = errorMessage(cause) }
       playbackError.value = errorMessage(cause)
       sourceState.value = 'error'
       buffering.value = false
@@ -377,15 +559,17 @@ export const usePlayerStore = defineStore('player', () => {
 
   async function toggle() {
     if (!current.value) return
-    if (playing.value) audio.pause()
+    if (playing.value) pause()
     else if (sourceState.value === 'error' || sourceState.value === 'idle') await play(current.value, undefined, time.value / 1000)
     else if (sourceState.value === 'ready') {
-      try { await audio.play() } catch (cause) { playbackError.value = errorMessage(cause) }
+      try { if (mixer?.has(audio)) await mixer.resume(); await audio.play() } catch (cause) { playbackError.value = errorMessage(cause) }
     }
   }
 
   function seek(seconds: number) {
     if (!audio.getAttribute('src') || !Number.isFinite(seconds)) return
+    if (startingBlend) cancelPreparation()
+    stopBlend()
     audio.currentTime = Math.max(0, Math.min(seconds, duration.value))
     syncTime()
     checkpoint = time.value
@@ -401,7 +585,8 @@ export const usePlayerStore = defineStore('player', () => {
       if (automatic && repeat.value === 'off') return
       index = 0
     }
-    await play(queue.value[index])
+    const track = queue.value[index]
+    await play(track)
   }
   async function previous() {
     if (time.value > 3000) {
@@ -489,7 +674,19 @@ export const usePlayerStore = defineStore('player', () => {
     return settingsSave
   }
   function updateSettings(values: Partial<AppSettings>) {
+    const smartChanged = values.smartMix !== undefined && values.smartMix !== settings.value.smartMix
     settings.value = { ...settings.value, ...values }
+    if (smartChanged) {
+      cancelPreparation(); stopBlend()
+      if (!settings.value.smartMix && mixer) {
+        const old = mixer; mixer = null
+        generation++; sourceState.value = 'idle'; playing.value = false; buffering.value = false
+        void old.dispose().catch(cause => { mixError.value = errorMessage(cause) })
+        audio = new Audio(); bindAudio(audio)
+      }
+      mixState.value = 'idle'; mixError.value = ''
+      notice.value = '自动衔接设置将在下一次播放时应用。'
+    }
     audio.volume = settings.value.volume
     clearTimeout(saveTimer)
     if (desktop) saveTimer = setTimeout(() => {
@@ -500,6 +697,9 @@ export const usePlayerStore = defineStore('player', () => {
 
   function reset() {
     setSleepTimer(null)
+    stopBlend()
+    if (mixer) { const old = mixer; mixer = null; void old.dispose().catch(cause => { mixError.value = errorMessage(cause) }); audio = new Audio(); bindAudio(audio) }
+    mixState.value = 'idle'; mixError.value = ''
     generation++
     cancelPreparation()
     trackOffset.value = 0; trackOffsetError.value = ''
@@ -536,7 +736,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', () => { if (!playing.value) void toggle() })
-    navigator.mediaSession.setActionHandler('pause', () => { if (playing.value) audio.pause() })
+    navigator.mediaSession.setActionHandler('pause', () => { if (playing.value) pause() })
     navigator.mediaSession.setActionHandler('previoustrack', () => { void previous() })
     navigator.mediaSession.setActionHandler('nexttrack', () => { void next() })
     navigator.mediaSession.setActionHandler('seekto', event => { if (event.seekTime !== undefined) seek(event.seekTime) })
@@ -546,7 +746,7 @@ export const usePlayerStore = defineStore('player', () => {
     lyricError, lyricWarnings, lyricLines, lyricMode, lyricTime, notice, repeat, shuffle, settings, progress,
     trackOffset, trackOffsetError, updateTrackOffset, updateShortcuts, preloadState, preloadError, upcoming,
     visualActive, currentIndex, nextMid, restored, sleepDeadline, sleepAfterTrack, sleepRemaining, setSleepTimer, checkSleepTimer, pause,
-    initialize, play, toggle, seek, next, previous, cycleRepeat,
+    mixState, mixError, mixMode, initialize, play, toggle, seek, next, previous, cycleRepeat,
     setShuffle, toggleShuffle, enqueue, removeFromQueue, moveInQueue, clearQueue, localSource, releaseDownload, restorePlayback, flushPlayback, updateSettings, reset,
     setVisualActive, readLyricTime, reloadLyrics: () => { if (current.value) void loadLyrics(current.value, generation) } }
 })
