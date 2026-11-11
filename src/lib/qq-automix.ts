@@ -112,7 +112,7 @@ export class QqAutoMix {
       param.cancelScheduledValues(0)
       param.setValueAtTime(value, now)
     }
-    media.playbackRate = 1
+    if (media.playbackRate !== 1) media.playbackRate = 1
   }
 
   release(media: HTMLAudioElement) {

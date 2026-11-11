@@ -580,8 +580,8 @@ describe('QQ automatic transitions', () => {
     old.currentTime = 111; old.dispatchEvent(new Event('timeupdate')); await flush()
     expect(player.current?.mid).toBe('mid2'); expect(graph.fade).toHaveBeenCalledOnce()
     expect(old.paused).toBe(false); expect(player.mixMode).toBe('QQ 自动衔接')
-    expect(graph.fade).toHaveBeenCalledWith(old, TestAudio.latest, plan, 0, expect.any(Function))
-    expect(TestAudio.latest.playbackRate).toBe(1.2)
+    expect(graph.fade).toHaveBeenCalledWith(old, TestAudio.latest, { ...plan, rate: 1 }, 0, expect.any(Function))
+    expect(TestAudio.latest.playbackRate).toBe(1)
     expect(TestAudio.latest.currentTime).toBe(0.5)
     TestAudio.latest.currentTime = 2.5
     expect(player.readLyricTime()).toBe(2500)

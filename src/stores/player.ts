@@ -470,23 +470,30 @@ export const usePlayerStore = defineStore('player', () => {
         || plan.input + plan.duration * plan.rate > (Number.isFinite(media.duration) ? media.duration : track.duration) + 0.25) {
         throw new Error('QQ 返回的衔接点超出音频时长。')
       }
+      // Do not change the incoming element's playbackRate: WebKit reconfigures
+      // its pitch-preserving audio pipeline and stalls for ~100 ms at the cut.
+      // Keep QQ's cut points and filter/gain curves, but crossfade at normal speed.
+      const available = (Number.isFinite(media.duration) ? media.duration : track.duration) - plan.input
+      const crossfadeDuration = Math.min(plan.duration, available)
+      if (!(crossfadeDuration > 0.25)) throw new Error('下一首剩余音频不足，无法自动衔接。')
+      const crossfadePlan: QqMixPlan = { ...plan, rate: 1, duration: crossfadeDuration }
       graph.silence(media)
-      media.playbackRate = plan.rate
+      media.playbackRate = 1
       const elapsed = () => Math.max(0, outgoing.currentTime - plan.out)
-      const entry = plan.input + elapsed() * plan.rate
+      const entry = plan.input + elapsed()
       if (Math.abs(entry - media.currentTime) > 0.065) media.currentTime = entry
       media.muted = false
       media.volume = settings.value.volume
       await media.play()
       if (prepared !== warm) return false
       const played = elapsed()
-      if (sleepAfterTrack.value || outgoing.ended || played >= Math.min(1, plan.duration * 0.35)) {
+      if (sleepAfterTrack.value || outgoing.ended || played >= Math.min(1, crossfadePlan.duration * 0.35)) {
         cancelPreparation()
         return false
       }
-      const aligned = plan.input + played * plan.rate
+      const aligned = plan.input + played
       if (Math.abs(aligned - media.currentTime) > 0.065) media.currentTime = aligned
-      graph.fade(outgoing, media, plan, played, () => {
+      graph.fade(outgoing, media, crossfadePlan, played, () => {
         mixMode.value = ''
         void prepareNext()
       })
