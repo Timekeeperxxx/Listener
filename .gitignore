@@ -15,3 +15,8 @@ demo-dist/
 *.db-wal
 *.db-shm
 docs/ui-research/assets/00*
+
+harmonyos/
+
+# 原型构建产物，由 prototypes/listener-next/build.mjs 重新生成
+prototypes/listener-next/Listener.html
