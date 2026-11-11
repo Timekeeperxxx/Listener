@@ -344,6 +344,34 @@ impl QqMusic {
         page(items, count(&data, "total")?, offset)
     }
 
+    pub async fn album_meta(
+        &self,
+        auth: Option<&Credentials>,
+        mid: &str,
+    ) -> Result<CatalogAlbum> {
+        validate_mid(mid)?;
+        let data = self
+            .catalog_rpc(
+                auth,
+                "music.musichallAlbum.AlbumInfoServer",
+                "GetAlbumDetail",
+                json!({"albumMId":mid}),
+            )
+            .await?;
+        let artists = array(&data, "/singer/singerList")?
+            .iter()
+            .map(map_artist)
+            .collect::<Result<Vec<_>>>()?;
+        let album = map_album(&data["basicInfo"], artists)?;
+        if album.mid != mid {
+            return Err(AppError::new(
+                "CATALOG_NOT_FOUND",
+                "这张专辑暂时无法查看。",
+            ));
+        }
+        Ok(album)
+    }
+
     pub async fn album_detail(&self, auth: Option<&Credentials>, mid: &str) -> Result<AlbumDetail> {
         validate_mid(mid)?;
         let data = self

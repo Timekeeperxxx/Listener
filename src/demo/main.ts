@@ -51,6 +51,7 @@ let demoSearchHistory: string[] = []
 const demoOffsets = new Map<string, number>()
 Object.assign(api, {
   ...publicCatalogApi,
+  albumMeta: async (mid: string) => (await publicCatalogApi.albumDetail(mid)).album,
   dailyRecommendation: async () => ({ day: recommendationDay(), playlist: { id: 'demo-daily', name: '每日30首（演示）', cover: tracks[0]!.cover, kind: 'public', count: Math.min(30, tracks.length) }, tracks: tracks.slice(0, 30) }),
   recommendationRadio: async () => tracks.slice(0, 10),
   savedCatalog: async () => demoSaved,

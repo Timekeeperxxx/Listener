@@ -6,7 +6,7 @@ import type { DesktopStatus, SavedCatalog, StorageUsage, UpdateInfo, AlbumDetail
 export const desktop = isTauri()
 
 let renewal: Promise<void> | null = null
-const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists', 'get_daily_recommendation', 'get_recommendation_radio'])
+const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_meta', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists', 'get_daily_recommendation', 'get_recommendation_radio'])
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (!desktop) return Promise.reject({ code: 'DESKTOP_REQUIRED', message: '请在 Listener macOS 应用中连接 QQ 音乐。' })
   try { return await invoke<T>(command, args) }
@@ -35,6 +35,7 @@ export const api = {
   artistDetail: (mid: string) => call<ArtistDetail>('get_artist_detail', { mid }),
   artistSongs: (mid: string, offset: number) => call<CatalogPage<Track>>('get_artist_songs', { mid, offset }),
   artistAlbums: (mid: string, offset: number) => call<CatalogPage<CatalogAlbum>>('get_artist_albums', { mid, offset }),
+  albumMeta: (mid: string) => call<CatalogAlbum>('get_album_meta', { mid }),
   albumDetail: (mid: string) => call<AlbumDetail>('get_album_detail', { mid }),
   catalogTrack: (mid: string) => call<Track>('get_catalog_track', { mid }),
   searchTracks: (keyword: string, offset: number) => call<CatalogPage<Track>>('get_search_tracks', { keyword, offset }),

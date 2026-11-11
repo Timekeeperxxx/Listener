@@ -452,6 +452,22 @@ async fn get_artist_albums(
 }
 
 #[tauri::command]
+async fn get_album_meta(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    mid: String,
+) -> Result<CatalogAlbum> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let result = state
+        .qq
+        .album_meta(Some(&snapshot.credentials), &mid)
+        .await?;
+    state.unchanged(&snapshot)?;
+    Ok(result)
+}
+
+#[tauri::command]
 async fn get_album_detail(
     window: WebviewWindow,
     state: State<'_, AppState>,
@@ -916,6 +932,7 @@ pub fn run() {
             get_artist_detail,
             get_artist_songs,
             get_artist_albums,
+            get_album_meta,
             get_album_detail,
             get_catalog_track,
             get_source,

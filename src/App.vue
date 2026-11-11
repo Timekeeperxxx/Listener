@@ -311,7 +311,7 @@ onUnmounted(() => {
         <button class="lyric-back" aria-label="返回音乐资料库" title="返回（Esc）" @click="setScene('library')"><ChevronDown :size="21" /></button>
         <div class="lyric-options"><button :class="{ selected: showTranslation }" :aria-pressed="showTranslation" @click="showTranslation = !showTranslation">译文</button><button :class="{ selected: showRomanization }" :aria-pressed="showRomanization" @click="showRomanization = !showRomanization">音译</button><button class="icon-button" aria-label="设置" @click="showSettings()"><SlidersHorizontal :size="18" /></button></div>
       </header>
-        <LyricsView :show-translation="showTranslation" :show-romanization="showRomanization" @artist="openTrackArtist"><template #controls><PlayerDock lyrics @lyrics="setScene('library')" @queue="queueDialog?.showModal()" /></template></LyricsView>
+        <LyricsView :show-translation="showTranslation" :show-romanization="showRomanization" @artist="openTrackArtist" @album="mid => openCatalog('album', mid)"><template #controls><PlayerDock lyrics @lyrics="setScene('library')" @queue="queueDialog?.showModal()" /></template></LyricsView>
         </div>
       </Transition>
 
