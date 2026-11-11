@@ -1,6 +1,6 @@
 [package]
 name = "listener"
-version = "0.4.9"
+version = "0.5.0"
 description = "A quiet home for your music"
 authors = ["Listener"]
 edition = "2021"

@@ -335,9 +335,8 @@ onUnmounted(() => {
       <div class="login-privacy">QQ 官方扫码授权<span>·</span>登录凭据仅存此 Mac</div>
     </dialog>
 
-    <dialog ref="settingsDialog" class="settings-dialog" aria-labelledby="settings-title">
-      <div class="dialog-heading"><h2 id="settings-title">设置</h2><button class="icon-button" aria-label="关闭设置" @click="settingsDialog?.close()"><X :size="19" /></button></div>
-      <SettingsPanel ref="settingsPanel" :demo="demo" @logout="logout" @connect="settingsDialog?.close(); library.connect()" @companion="showCompanion" @downloads="settingsDialog?.close(); openDownloads()" />
+    <dialog ref="settingsDialog" class="settings-dialog settings-redesign" aria-label="设置">
+      <SettingsPanel ref="settingsPanel" :demo="demo" :theme="theme" @update:theme="value => theme = value" @close="settingsDialog?.close()" @logout="logout" @connect="settingsDialog?.close(); library.connect()" @companion="showCompanion" @downloads="settingsDialog?.close(); openDownloads()" />
     </dialog>
 
     <PlaylistDialog ref="playlistDialog" /><TrackActions ref="trackActions" @downloads="openDownloads" />
