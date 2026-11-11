@@ -6,19 +6,10 @@ export interface QqMixPlan {
   mode: 'amfilter2'
 }
 
-interface Deck {
-  source: MediaElementAudioSourceNode
-  filter: BiquadFilterNode
-  bass: BiquadFilterNode
-  gain: GainNode
-}
-
 type Points = ReadonlyArray<readonly [number, number]>
-// amfilter2 control points from the QQ Music macOS player's preset.
+// amfilter2 gain control points from the QQ Music macOS player's preset.
 const outgoingGain: Points = [[0, 0], [0.5, 0], [0.75, -2], [0.85, -6], [0.92, -15], [1, -35]]
 const incomingGain: Points = [[0.35, -30], [0.5, -15], [0.7, -7], [0.85, -3], [0.92, 0]]
-const outgoingFilter: Points = [[0, 20000], [0.1, 10000], [0.25, 6500], [0.4, 4500], [0.65, 4000], [0.75, 3600], [0.85, 2500]]
-const incomingFilter: Points = [[0.35, 10000], [0.4, 1500], [0.55, 800], [0.75, 700], [0.82, 550], [0.92, 100], [1, 20]]
 
 function interpolate(points: Points, position: number) {
   if (position <= points[0][0]) return points[0][1]
@@ -32,106 +23,93 @@ function interpolate(points: Points, position: number) {
   return points[points.length - 1][1]
 }
 
+function dbToVolume(db: number) {
+  return Math.max(0, Math.min(1, 10 ** (db / 20)))
+}
+
+/**
+ * QQ cut-point AutoMix using direct HTMLAudioElement volume changes.
+ *
+ * It deliberately does not create a MediaElementAudioSourceNode: routing the
+ * playing element through Web Audio makes WebKit buffer/seek much more slowly,
+ * which is visible as a large delay after clicking a lyric line to seek.
+ */
 export class QqAutoMix {
-  readonly context = new AudioContext()
-  private decks = new Map<HTMLAudioElement, Deck>()
+  // The player uses this state only to suspend/resume the graph. Direct volume
+  // crossfades have no graph, so the calls are intentionally no-ops.
+  readonly context = {
+    state: 'running' as const,
+    suspend: async () => {},
+    resume: async () => {},
+    close: async () => {},
+  }
+  private decks = new Set<HTMLAudioElement>()
   private fading: HTMLAudioElement | null = null
   private incoming: HTMLAudioElement | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
+  private baseVolume = 1
 
   prepare(media: HTMLAudioElement, url: string) {
-    const source = this.context.createMediaElementSource(media)
-    const filter = this.context.createBiquadFilter()
-    const bass = this.context.createBiquadFilter()
-    const gain = this.context.createGain()
-    filter.type = 'lowpass'
-    filter.frequency.value = this.context.sampleRate / 2
-    bass.type = 'lowshelf'
-    bass.frequency.value = 180
-    source.connect(filter).connect(bass).connect(gain).connect(this.context.destination)
-    this.decks.set(media, { source, filter, bass, gain })
+    this.decks.add(media)
     media.preservesPitch = true
-    // Web Audio must receive a CORS-enabled stream to process its samples.
-    media.crossOrigin = 'anonymous'
     media.src = url
     media.load()
   }
 
   has(media: HTMLAudioElement) { return this.decks.has(media) }
-  resume() { return this.context.resume() }
+  resume() { return Promise.resolve() }
 
   silence(media: HTMLAudioElement) {
-    this.decks.get(media)!.gain.gain.setValueAtTime(0, this.context.currentTime)
+    media.volume = 0
   }
 
   fade(old: HTMLAudioElement, next: HTMLAudioElement, plan: QqMixPlan, elapsed: number, onEnd: () => void) {
-    const start = this.context.currentTime
-    const remaining = plan.duration - elapsed
-    const apply = (param: AudioParam, points: Points, convert: (value: number) => number) => {
-      const curve = Float32Array.from({ length: 128 }, (_, i) => {
-        const position = (elapsed + remaining * i / 127) / plan.duration
-        return convert(interpolate(points, position))
-      })
-      param.cancelScheduledValues(0)
-      param.setValueCurveAtTime(curve, start, remaining)
-    }
-    const from = this.decks.get(old)!
-    const to = this.decks.get(next)!
-    from.filter.type = 'lowpass'
-    to.filter.type = 'highpass'
-    apply(from.filter.frequency, outgoingFilter, hz => hz)
-    apply(to.filter.frequency, incomingFilter, hz => hz)
-    apply(from.gain.gain, outgoingGain, db => 10 ** (db / 20))
-    apply(to.gain.gain, incomingGain, db => 10 ** (db / 20))
-    const bassSwap = start + Math.max(0, plan.duration * 0.8 - elapsed)
-    from.bass.gain.setValueAtTime(-15, bassSwap)
-    to.bass.gain.setValueAtTime(-15, start)
-    to.bass.gain.setValueAtTime(0, bassSwap)
+    const started = performance.now()
+    const base = Math.max(old.volume, next.volume, 0)
+    this.baseVolume = base
     this.fading = old
     this.incoming = next
-    this.timer = setTimeout(() => {
+    next.volume = 0
+
+    const step = () => {
+      const position = Math.min(1, (elapsed + (performance.now() - started) / 1000) / plan.duration)
+      old.volume = Math.max(0, Math.min(base, base * dbToVolume(interpolate(outgoingGain, position))))
+      next.volume = Math.max(0, Math.min(base, base * dbToVolume(interpolate(incomingGain, position))))
+      if (position < 1) {
+        this.timer = setTimeout(step, 24)
+        return
+      }
       this.finish()
       onEnd()
-    }, remaining * 1000)
+    }
+    step()
   }
 
   finish() {
     clearTimeout(this.timer)
     this.timer = undefined
-    if (this.fading) this.release(this.fading)
-    this.fading = null
-    if (!this.incoming) return
-    const media = this.incoming
-    this.incoming = null
-    const deck = this.decks.get(media)!
-    const now = this.context.currentTime
-    deck.filter.type = 'lowpass'
-    for (const [param, value] of [
-      [deck.gain.gain, 1], [deck.bass.gain, 0], [deck.filter.frequency, this.context.sampleRate / 2],
-    ] as const) {
-      param.cancelScheduledValues(0)
-      param.setValueAtTime(value, now)
+    if (this.fading) {
+      this.fading.volume = 0
+      this.release(this.fading)
+      this.fading = null
     }
-    if (media.playbackRate !== 1) media.playbackRate = 1
+    if (this.incoming) {
+      this.incoming.volume = Math.min(1, this.baseVolume)
+      this.incoming = null
+    }
   }
 
   release(media: HTMLAudioElement) {
-    const deck = this.decks.get(media)
-    if (!deck) return false
+    if (!this.decks.has(media)) return false
     media.pause()
     media.removeAttribute('src')
     media.load()
-    deck.source.disconnect()
-    deck.filter.disconnect()
-    deck.bass.disconnect()
-    deck.gain.disconnect()
     this.decks.delete(media)
     return true
   }
 
   async dispose() {
     this.finish()
-    for (const media of this.decks.keys()) this.release(media)
-    await this.context.close()
+    for (const media of [...this.decks]) this.release(media)
   }
 }

@@ -501,7 +501,7 @@ export const usePlayerStore = defineStore('player', () => {
       const entry = plan.input + elapsed()
       if (Math.abs(entry - media.currentTime) > 0.065) media.currentTime = entry
       media.muted = false
-      media.volume = settings.value.volume
+      media.volume = 0
       await media.play()
       if (prepared !== warm) return false
       const played = elapsed()
