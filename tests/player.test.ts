@@ -611,6 +611,22 @@ describe('QQ automatic transitions', () => {
     expect(graph.fade).not.toHaveBeenCalled()
     player.reset()
   })
+  it('keeps the lyric clock on the requested position until the media seek completes', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore()
+    await player.play(track(1))
+    const media = TestAudio.latest
+    let actual = 10
+    Object.defineProperty(media, 'currentTime', { configurable: true, get: () => actual, set: () => {} })
+    player.seek(42)
+    expect(player.time).toBe(42000)
+    expect(player.readLyricTime()).toBe(42000)
+    actual = 42
+    media.dispatchEvent(new Event('seeked'))
+    expect(player.time).toBe(42000)
+    expect(player.readLyricTime()).toBe(42000)
+    player.reset()
+  })
   it('a seek cancels the fade and keeps the current track position', async () => {
     const { usePlayerStore } = await import('../src/stores/player')
     const player = usePlayerStore(); player.settings.smartMix = true; await player.play(track(1))

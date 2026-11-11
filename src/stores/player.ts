@@ -67,6 +67,7 @@ export const usePlayerStore = defineStore('player', () => {
   let frame = 0
   let lastUiFrame = 0
   let recorded = false
+  let seekTarget: { seconds: number; until: number } | null = null
   let prepared: {
     mid: string; media: HTMLAudioElement; source: PlaybackSource; request: number
     lyrics?: LyricsRequest
@@ -206,13 +207,24 @@ export const usePlayerStore = defineStore('player', () => {
   const progress = computed(() => duration.value > 0 ? time.value / (duration.value * 1000) * 100 : 0)
   const currentIndex = computed(() => queue.value.findIndex(t => t.mid === current.value?.mid))
 
+  function activeSeekTarget() {
+    if (!seekTarget) return null
+    if (performance.now() >= seekTarget.until || Math.abs(audio.currentTime - seekTarget.seconds) < 0.08) {
+      seekTarget = null
+      return null
+    }
+    return seekTarget.seconds * 1000
+  }
   function syncTime() {
+    const target = activeSeekTarget()
+    if (target !== null) { time.value = Math.round(target); return }
     if (audio.getAttribute('src')) time.value = Math.round(audio.currentTime * 1000)
   }
   // Lyrics read the media clock inside their own animation frame. Keeping that
   // clock out of Vue avoids rendering the whole player for every lyric frame.
   function readLyricTime() {
-    const position = audio.getAttribute('src') ? audio.currentTime * 1000 : time.value
+    const target = activeSeekTarget()
+    const position = target ?? (audio.getAttribute('src') ? audio.currentTime * 1000 : time.value)
     return Math.max(0, Math.round(position + settings.value.lyricOffset + trackOffset.value))
   }
   function tick(now: number) {
@@ -305,6 +317,11 @@ export const usePlayerStore = defineStore('player', () => {
     if (graph?.context.state === 'running') void graph.context.suspend().catch(cause => { if (graph === mixer) mixError.value = errorMessage(cause) })
     updateFrame()
     if (current.value) void persistPlayback()
+  })
+  element.addEventListener('seeked', () => {
+    if (element !== audio) return;
+    seekTarget = null
+    syncTime()
   })
   element.addEventListener('timeupdate', () => {
     if (element !== audio) return;
@@ -423,6 +440,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function selectTrack(track: Track, items: Track[] | undefined, startAt: number, request: number, lyrics?: LyricsRequest) {
+    seekTarget = null
     playing.value = false
     if (items) {
       queue.value = [...new Map(items.map(item => [item.mid, item])).values()]
@@ -577,8 +595,12 @@ export const usePlayerStore = defineStore('player', () => {
     if (!audio.getAttribute('src') || !Number.isFinite(seconds)) return
     if (startingBlend) cancelPreparation()
     stopBlend()
-    audio.currentTime = Math.max(0, Math.min(seconds, duration.value))
-    syncTime()
+    const target = Math.max(0, Math.min(seconds, duration.value))
+    // WebKit applies currentTime asynchronously. Keep the UI and lyric clock on
+    // the requested position until the media reports the seeked position.
+    seekTarget = { seconds: target, until: performance.now() + 1_200 }
+    audio.currentTime = target
+    time.value = Math.round(target * 1000)
     checkpoint = time.value
     void persistPlayback()
   }
@@ -703,6 +725,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function reset() {
+    seekTarget = null
     setSleepTimer(null)
     stopBlend()
     if (mixer) { const old = mixer; mixer = null; void old.dispose().catch(cause => { mixError.value = errorMessage(cause) }); audio = new Audio(); bindAudio(audio) }

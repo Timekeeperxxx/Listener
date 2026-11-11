@@ -31,6 +31,14 @@ function pointerEnter() { pointerInside = true; cancelReturn() }
 function pointerLeave() { pointerInside = false; scheduleReturn() }
 function browse() { browsing = true; cancelReturn() }
 const lineClick = (event: Event) => emit('lineClick', event as LyricLineMouseEvent)
+function syncTo(time: number) {
+  if (!renderer) return
+  browsing = false
+  cancelReturn()
+  renderer.setCurrentTime(time, true)
+  renderer.resetScroll()
+}
+defineExpose({ syncTo })
 
 onMounted(() => {
   renderer = new LyricPlayer()
