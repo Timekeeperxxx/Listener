@@ -141,7 +141,12 @@ function openDownloads() {
   if (!library.profile) { void library.connect(); return }
   setScene('library'); library.showDownloads(); void downloads.load()
 }
-function showSettings() { void settingsPanel.value?.refresh(); settingsDialog.value?.showModal() }
+function showSettings() {
+  const dialog = settingsDialog.value
+  if (!dialog || dialog.open) return
+  void settingsPanel.value?.refresh()
+  dialog.showModal()
+}
 async function quitApp() {
   if (quitting) return
   quitting = true
@@ -223,6 +228,7 @@ function keyboard(event: KeyboardEvent) {
   const target = event.target as HTMLElement
   if (event.key === 'Escape' && scene.value === 'lyrics' && !target.closest('dialog')) { event.preventDefault(); setScene('library'); return }
   if ((event.metaKey || event.ctrlKey) && ['f','k'].includes(event.key.toLowerCase())) { event.preventDefault(); setScene('library'); void nextTick(() => searchInput.value?.focus()); return }
+  if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && (event.key === ',' || event.code === 'Comma')) { event.preventDefault(); showSettings(); return }
   if (target.closest('input,textarea,button,[contenteditable=true],dialog') || event.altKey || event.metaKey || event.ctrlKey) return
   if (event.code === 'Space') { event.preventDefault(); void player.toggle() }
   if (event.code === 'ArrowRight') { event.preventDefault(); player.seek(player.time / 1000 + 5) }
