@@ -36,6 +36,7 @@ export const useLibraryStore = defineStore('library', () => {
   const mutationBusy = ref(false)
   const mutationError = ref('')
   const likedMids = shallowRef<Set<string>>(new Set())
+  const likedTracks = shallowRef<Track[]>([])
   const likedState = ref<LoadState>('idle')
   const likingMid = ref<string | null>(null)
   const favoriteError = ref('')
@@ -112,6 +113,7 @@ export const useLibraryStore = defineStore('library', () => {
     error.value = ''
     warnings.value = []
     likedMids.value = new Set()
+    likedTracks.value = []
     likedState.value = 'idle'
     likedRequest = null
     likingMid.value = null
@@ -206,15 +208,17 @@ export const useLibraryStore = defineStore('library', () => {
     likedRequest = (async () => {
       try {
         const mids = new Set<string>()
+        const items: Track[] = []
         let nextOffset = 0
         while (true) {
           const page = await api.playlist('liked', nextOffset)
           if (generation !== accountGeneration || version !== likedVersion) return
-          page.tracks.forEach(track => mids.add(track.mid))
+          page.tracks.forEach(track => { if (!mids.has(track.mid)) items.push(track); mids.add(track.mid) })
           if (!page.hasMore) break
           nextOffset = page.nextOffset
         }
         likedMids.value = mids
+        likedTracks.value = items
         likedState.value = 'ready'
       } catch (cause) {
         if (generation === accountGeneration && version === likedVersion) { favoriteError.value = errorMessage(cause); likedState.value = 'error' }
@@ -258,6 +262,7 @@ export const useLibraryStore = defineStore('library', () => {
         if (action === 'add') mids.add(track.mid)
         else mids.delete(track.mid)
         likedMids.value = mids
+        likedTracks.value = action === 'remove' ? likedTracks.value.filter(item => item.mid !== track.mid) : [track, ...likedTracks.value.filter(item => item.mid !== track.mid)]
         likedState.value = 'ready'
       }
       if (request === navigation && view.value === 'playlist' && selected.value?.id === id) {
@@ -400,7 +405,7 @@ export const useLibraryStore = defineStore('library', () => {
 
   return { profile, playlists, tracks, recentTracks, recentState, recentError, selected, view, state, libraryState, sessionLoading, error,
     libraryError, warnings, loginError, loginWaiting, loginOpen, loginQr, loginStatus, total, hasMore, loadingMore, query,
-    loginKind, setLoginKind, mutationBusy, mutationError, likedMids, likedState, likingMid, favoriteError, loadLiked, toggleLike, mutate,
+    loginKind, setLoginKind, mutationBusy, mutationError, likedMids, likedTracks, likedState, likingMid, favoriteError, loadLiked, toggleLike, mutate,
     artistMid, albumId, showCatalog, backCatalog,
     initialize, refresh, connect, cancelLogin, logout, showLibrary, showDownloads, loadRecent, openPlaylist, loadMore, completePlaylist, search, history }
 })

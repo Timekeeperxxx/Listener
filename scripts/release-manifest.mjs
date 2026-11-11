@@ -13,7 +13,7 @@ const decoded = Buffer.from(signature, 'base64').toString('utf8')
 if (decoded.match(/\bversion:(\S+)/)?.[1] !== version) throw new Error('更新包签名未绑定当前版本，拒绝生成发布清单。')
 const manifest = {
   version,
-  notes: '统一搜索、完整歌手队列、下一首预加载、歌手与专辑收藏、菜单栏与全局快捷键、歌词偏好、存储管理及应用内更新。',
+  notes: '歌曲更多操作改为按钮旁的小菜单；添加到歌单和下载使用子菜单，支持边缘避让、键盘操作和日夜主题。',
   pub_date: new Date().toISOString(),
   platforms: { [`darwin-${target}`]: { signature, url: `https://github.com/Timekeeperxxx/Listener/releases/download/v${version}/${artifact}` } },
 }

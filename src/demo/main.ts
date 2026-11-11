@@ -6,12 +6,14 @@ import { useLibraryStore } from '../stores/library'
 import { usePlayerStore } from '../stores/player'
 import { useSavedCatalogStore } from '../stores/saved-catalog'
 import { useSearchStore } from '../stores/search'
+import { recommendationDay } from '../stores/discovery'
 import { api } from '../lib/api'
 import { publicCatalogApi } from './catalog-api'
 import type { ArtistRef, CatalogAlbum, Library, Playlist, SavedCatalog, Track } from '../types'
 import data from './data.json'
 import links from './catalog-links.json'
 import '../style.css'
+import '../redesign.css'
 
 // This separate HTML entry is an explicit UI demo. It never loads the desktop
 // entry, connects an account, requests QQ audio, or writes user data.
@@ -49,6 +51,8 @@ let demoSearchHistory: string[] = []
 const demoOffsets = new Map<string, number>()
 Object.assign(api, {
   ...publicCatalogApi,
+  dailyRecommendation: async () => ({ day: recommendationDay(), playlist: { id: 'demo-daily', name: '每日30首（演示）', cover: tracks[0]!.cover, kind: 'public', count: Math.min(30, tracks.length) }, tracks: tracks.slice(0, 30) }),
+  recommendationRadio: async () => tracks.slice(0, 10),
   savedCatalog: async () => demoSaved,
   saveArtist: async (artist: ArtistRef, saved: boolean) => { demoSaved = { ...demoSaved, artists: saved ? [artist, ...demoSaved.artists.filter(a => a.mid !== artist.mid)] : demoSaved.artists.filter(a => a.mid !== artist.mid) }; return demoSaved },
   saveAlbum: async (album: CatalogAlbum, saved: boolean) => { demoSaved = { ...demoSaved, albums: saved ? [album, ...demoSaved.albums.filter(a => a.mid !== album.mid)] : demoSaved.albums.filter(a => a.mid !== album.mid) }; return demoSaved },
@@ -64,6 +68,7 @@ Object.assign(api, {
   library: async () => libraryResult(),
   history: async () => recent,
   playlist: async (id: string, offset: number) => {
+    if (id === 'demo-daily') return { tracks: tracks.slice(offset, 30), total: Math.min(30, tracks.length), nextOffset: Math.min(30, tracks.length), hasMore: false }
     const list = playlistTracks.get(id)
     if (!list) return publicCatalogApi.publicPlaylist(id, offset)
     return { tracks: list.slice(offset, offset + 30), total: list.length, nextOffset: Math.min(offset + 30, list.length), hasMore: offset + 30 < list.length }
@@ -90,6 +95,7 @@ library.playlists = libraryResult().playlists
 library.libraryState = 'ready'
 library.recentTracks = recent
 library.recentState = 'ready'
+library.likedTracks = favoriteTracks
 library.likedMids = new Set(favoriteTracks.map(track => track.mid))
 library.likedState = 'ready'
 void useSavedCatalogStore(pinia).load()

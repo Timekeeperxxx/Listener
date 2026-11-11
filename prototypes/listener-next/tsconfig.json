@@ -1,0 +1,1 @@
+{"extends":"../../tsconfig.json","include":["./**/*.ts","./**/*.vue","../../src/components/SyncedLyrics.vue"]}

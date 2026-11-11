@@ -5,7 +5,9 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { AudioLines, ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronLeft, Clock3,
   Download, Heart, ListMusic, LoaderCircle, LogOut, Music2, Pause, Play, Plus,
   QrCode, RefreshCw, Repeat, Repeat1, Search, Shuffle, SkipBack, SkipForward,
-  SlidersHorizontal, Volume2, VolumeX, X } from '@lucide/vue'
+  SlidersHorizontal, Sun, Moon, Volume2, VolumeX, X } from '@lucide/vue'
+import HomeView from './components/HomeView.vue'
+import { useDiscoveryStore } from './stores/discovery'
 import CoverArt from './components/CoverArt.vue'
 import FavoriteButton from './components/FavoriteButton.vue'
 import TrackList from './components/TrackList.vue'
@@ -27,7 +29,7 @@ import { useLibraryStore } from './stores/library'
 import { usePlayerStore } from './stores/player'
 import { api, desktop, errorMessage } from './lib/api'
 import { formatTime } from './lib/format'
-import type { Playlist, Track } from './types'
+import type { HomeNavigation, HomeCategory, Playlist, Track } from './types'
 
 const LyricsView = defineAsyncComponent(() => import('./components/LyricsView.vue'))
 const props = defineProps<{ demo?: boolean }>()
@@ -37,6 +39,14 @@ const downloads = useDownloadsStore()
 const catalog = useCatalogStore()
 const searchStore = useSearchStore()
 const savedCatalog = useSavedCatalogStore()
+const discovery = useDiscoveryStore()
+const homeNavigation = ref<HomeNavigation>('recommend')
+const homeCategory = ref<HomeCategory>('albums')
+const navItems: { id: HomeNavigation; label: string }[] = [{ id: 'recommend', label: '推荐' }, { id: 'discover', label: '发现' }, { id: 'favorites', label: '我的收藏' }]
+const navIndex = computed(() => navItems.findIndex(item => item.id === homeNavigation.value))
+const theme = ref<'light' | 'dark'>(localStorage.getItem('listener.appearance') === 'dark' ? 'dark' : 'light')
+watch(theme, value => localStorage.setItem('listener.appearance', value))
+function navPointer(event: PointerEvent) { const element = event.currentTarget as HTMLElement; element.style.setProperty('--pointer-x', `${event.clientX - element.getBoundingClientRect().left}px`) }
 const playlistDialog = ref<InstanceType<typeof PlaylistDialog>>()
 const trackActions = ref<InstanceType<typeof TrackActions>>()
 const trackFilter = ref('')
@@ -59,6 +69,7 @@ let unlistenDesktop: UnlistenFn | undefined
 let unlistenFocus: UnlistenFn | undefined
 let quitting = false
 const queueDialog = ref<HTMLDialogElement>()
+const selectedQueue = ref('')
 const loginDialog = ref<HTMLDialogElement>()
 const busyAll = ref(false)
 const playlistFilter = ref<'all' | 'created' | 'collected'>('all')
@@ -75,7 +86,7 @@ const likedPlaylist = computed(() => library.playlists.find(p => p.kind === 'lik
 const visiblePlaylists = computed(() => playlistFilter.value === 'all' ? library.playlists : library.playlists.filter(p => p.kind === playlistFilter.value))
 const recentPreview = computed(() => library.recentTracks.slice(0, 6))
 const catalogView = computed(() => ['artists', 'albums', 'artist', 'album'].includes(library.view))
-function openCatalog(view: 'artists' | 'albums' | 'artist' | 'album', id = '') { setScene('library'); library.showCatalog(view, id) }
+function openCatalog(view: 'artists' | 'albums' | 'artist' | 'album', id = '') { if (view === 'artists' || view === 'albums') { browse(view); return }; setScene('library'); library.showCatalog(view, id) }
 function goBack() { if (catalogView.value) library.backCatalog(); else goLibrary() }
 let catalogLinkRequest = 0
 watch([() => library.view, () => library.profile?.uin], () => { catalogLinkRequest++ })
@@ -101,7 +112,7 @@ function shuffleCatalog(tracks: Track[]) { if (tracks.length) { player.setShuffl
 const trackTitle = computed(() => library.view === 'playlist' ? library.selected?.name : library.view === 'search' ? `“${library.query}”` : '最近播放')
 const notices = computed(() => [uiError.value, library.loginError, library.favoriteError, player.notice, savedCatalog.error].filter(Boolean))
 watch(() => library.profile?.uin, owner => {
-  catalog.reset(); searchStore.reset(); savedCatalog.reset()
+  catalog.reset(); searchStore.reset(); savedCatalog.reset(); discovery.reset()
   if (owner) { void savedCatalog.load(); void searchStore.loadHistory(); void player.restorePlayback(owner); void library.loadRecent(); downloads.clear(); void downloads.load() }
   else { player.reset(); downloads.clear() }
 })
@@ -111,8 +122,9 @@ watch(() => library.loginOpen, async open => {
   else loginDialog.value?.close()
 })
 
+watch([() => library.view, scene, homeNavigation, homeCategory, searchText, trackFilter, trackSort], () => { trackActions.value?.close(false) })
 watch([() => library.view, () => library.selected?.id], () => { trackFilter.value = ''; trackSort.value = 'default'; sortDescending.value = false })
-watch([() => library.view, () => library.artistMid, () => library.albumId], () => {
+watch([() => library.view, () => library.artistMid, () => library.albumId, homeNavigation, homeCategory], () => {
   if (contentScroll.value) contentScroll.value.scrollTop = 0
 }, { flush: 'post' })
 watch([trackFilter, trackSort, () => library.loadingMore], async () => {
@@ -157,7 +169,10 @@ async function observeVisibility() {
 }
 
 function setScene(value: 'library' | 'lyrics') { scene.value = value; void observeVisibility() }
-function goLibrary() { setScene('library'); library.showLibrary(); if (library.profile) void library.loadRecent() }
+function goLibrary() { setScene('library'); library.showLibrary() }
+function selectNavigation(value: HomeNavigation) { homeNavigation.value = value; homeCategory.value = value === 'favorites' ? 'songs' : 'albums'; searchText.value = ''; goLibrary() }
+function browse(category: HomeCategory) { selectNavigation('discover'); homeCategory.value = category }
+async function playPlaylist(playlist: Playlist) { await openPlaylist(playlist); if (library.state === 'ready' && library.selected?.id === playlist.id) await playAll() }
 async function playLiked() {
   if (!likedPlaylist.value) return
   await openPlaylist(likedPlaylist.value)
@@ -175,7 +190,7 @@ async function openHistory() {
 async function search() {
   if (!searchText.value.trim()) return
   if (!library.profile) { await library.connect(); return }
-  setScene('library'); library.search(searchText.value)
+  setScene('library'); if (homeNavigation.value === 'favorites') library.showLibrary(); else library.search(searchText.value)
 }
 async function playTrack(track: Track) { await player.play(track, displayedTracks.value) }
 async function playAll(shuffled = false) {
@@ -196,11 +211,11 @@ async function logout() {
   try {
     await library.logout()
     settingsDialog.value?.close()
-    goLibrary()
+    selectNavigation('recommend')
   } catch (cause) { uiError.value = errorMessage(cause) }
 }
 function searchTerm(keyword: string) { searchText.value = keyword; void search() }
-function focusSearch() { if (!searchText.value.trim() && library.profile) { setScene('library'); library.search('') } }
+function focusSearch() { if (!library.profile) return; setScene('library'); if (homeNavigation.value === 'favorites') library.showLibrary(); else if (!searchText.value.trim()) library.search('') }
 function dismissNotices() { uiError.value = ''; player.notice = ''; library.loginError = ''; library.favoriteError = ''; savedCatalog.error = '' }
 function setVolume(event: Event) { player.updateSettings({ volume: Number((event.target as HTMLInputElement).value) }) }
 function seek(event: Event) { player.seek(Number((event.target as HTMLInputElement).value)) }
@@ -258,12 +273,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'lyrics-mode': scene === 'lyrics', 'web-demo': demo }">
+  <div class="app-shell listener-redesign" :data-theme="theme" :class="{ 'lyrics-mode': scene === 'lyrics', 'web-demo': demo }">
     <div class="workspace">
       <header class="topbar" :inert="scene === 'lyrics'" :aria-hidden="scene === 'lyrics'" data-tauri-drag-region>
-        <div class="window-navigation"><span v-if="demo" class="demo-traffic" aria-hidden="true"><i></i><i></i><i></i></span><button class="icon-button" :disabled="library.view === 'library'" aria-label="返回上一页" @click="goBack"><ChevronLeft :size="22" /></button></div>
-        <nav class="top-nav" aria-label="音乐导航"><button :class="{ selected: library.view === 'library' || catalogView }" @click="goLibrary">音乐库</button><button :class="{ selected: library.view === 'playlist' && library.selected?.kind === 'liked' }" @click="openLiked">我喜欢</button><button :class="{ selected: library.view === 'history' }" @click="openHistory">最近播放</button><button :class="{ selected: library.view === 'downloads' }" @click="openDownloads">下载与离线</button></nav>
-        <div class="topbar-actions"><span v-if="demo" class="demo-badge" title="示例资料；播放与歌词仅演示交互，不连接真实 QQ 账户">网页演示</span><form class="search-box" role="search" @submit.prevent="search"><Search :size="16" /><input ref="searchInput" v-model="searchText" placeholder="搜索" aria-label="搜索歌曲、歌手、专辑或歌单" maxlength="100" @focus="focusSearch" /><kbd>⌘ K</kbd></form><button class="account-menu" :aria-label="library.profile ? '账户与设置' : '登录 QQ 音乐'" :title="library.profile?.nickname || '登录 QQ 音乐'" @click="library.profile ? showSettings() : library.connect()"><img v-if="library.profile?.avatar" :src="library.profile.avatar" alt="" /><QrCode v-else :size="19" /></button></div>
+        <div class="window-navigation"><span v-if="demo" class="demo-traffic" aria-hidden="true"><i></i><i></i><i></i></span><button class="wordmark" aria-label="返回推荐" @click="selectNavigation('recommend')"><AudioLines :size="23" :stroke-width="1.7"/><span>listener<span class="brand-period">.</span></span></button></div>
+        <nav class="top-nav glass-navigation" aria-label="主导航" @pointermove="navPointer"><span class="glass-lens" :style="{ transform: `translateX(${navIndex * 100}%)` }"></span><button v-for="item in navItems" :key="item.id" :class="{ selected: homeNavigation === item.id }" :aria-current="homeNavigation === item.id ? 'page' : undefined" @click="selectNavigation(item.id)">{{ item.label }}</button></nav>
+        <div class="topbar-actions"><span v-if="demo" class="demo-badge" title="网页演示不连接真实 QQ 账户">网页演示</span><form class="search-box" role="search" @submit.prevent="search"><Search :size="15"/><input ref="searchInput" v-model="searchText" :placeholder="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索音乐'" :aria-label="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索全部音乐'" maxlength="100" @focus="focusSearch"/><kbd>⌘ K</kbd></form><button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换夜间模式' : '切换日间模式'" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="19"/><Sun v-else :size="19"/></button><button class="account-menu" :aria-label="library.profile ? '账户与设置' : '登录 QQ 音乐'" :title="library.profile?.nickname || '登录 QQ 音乐'" @click="library.profile ? showSettings() : library.connect()"><img v-if="library.profile?.avatar" :src="library.profile.avatar" alt=""/><QrCode v-else :size="19"/></button></div>
       </header>
 
 
@@ -271,45 +286,19 @@ onUnmounted(() => {
 
         <div ref="contentScroll" class="content-scroll">
           <div v-if="library.profile?.offline" class="inline-warning offline-banner">当前离线，只能播放已下载歌曲和查看本地记录。<button class="text-button" @click="library.initialize">重新连接</button></div>
-          <section v-if="library.view === 'library'" class="library-view">
-            <div class="page-heading library-heading"><div><h1>{{ library.profile ? `${library.profile.nickname} 的音乐库` : '音乐库' }}</h1></div></div>
-            <nav v-if="library.profile" class="collection-tabs library-collection-tabs" aria-label="资料库分类"><button class="selected" @click="goLibrary">歌单</button><button @click="openCatalog('albums')">专辑</button><button @click="openCatalog('artists')">歌手</button></nav>
-            <section v-if="!library.profile" class="welcome-card">
-              <div class="welcome-icon"><Music2 :size="42" :stroke-width="1.5" /></div><div class="welcome-copy"><h2>登录 QQ 音乐</h2><button class="button primary" :disabled="library.loginWaiting || library.sessionLoading" @click="library.connect"><LoaderCircle v-if="library.loginWaiting || library.sessionLoading" :size="16" class="spinning" /><QrCode v-else :size="16" />{{ library.sessionLoading ? '正在连接账户' : library.loginWaiting ? '等待扫码登录' : '扫码登录' }}</button></div>
-            </section>
+          <button v-if="library.view !== 'library'" class="back-link" @click="goBack"><ChevronLeft :size="15"/>返回{{ homeNavigation === 'recommend' ? '推荐' : homeNavigation === 'discover' ? '发现' : '我的收藏' }}</button>
+          <HomeView v-if="library.view === 'library'" v-model:category="homeCategory" :navigation="homeNavigation" :keyword="homeNavigation === 'favorites' ? searchText : ''" :busy="busyAll" @browse="browse" @search="searchTerm" @downloads="openDownloads" @playlist="openPlaylist" @play-playlist="playPlaylist" @history="openHistory" @create-playlist="playlistDialog?.open('create')" @album="mid => openCatalog('album', mid)" @artist="mid => openCatalog('artist', mid)" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)"/>
 
-            <div v-if="library.profile" class="library-overview" :class="{ 'without-favorites': !likedPlaylist }">
-              <div v-if="likedPlaylist" class="favorites-card">
-                <button class="favorites-open" @click="openLiked"><Heart :size="30" fill="currentColor" /><Heart :size="124" fill="currentColor" class="favorites-watermark" /><span><strong>我喜欢的音乐</strong><small>{{ likedPlaylist.count }} 首歌曲</small></span></button>
-                <button class="favorites-play" :disabled="!likedPlaylist.count || busyAll" aria-label="播放我喜欢的音乐" title="播放我喜欢的音乐" @click="playLiked"><LoaderCircle v-if="busyAll" :size="21" class="spinning" /><Play v-else :size="21" fill="currentColor" /></button>
-              </div>
-              <section class="recent-panel" aria-labelledby="recent-heading">
-                <div class="section-heading compact"><h2 id="recent-heading">最近播放</h2><button class="text-button" @click="openHistory">查看全部<ArrowRight :size="14" /></button></div>
-                <div v-if="library.recentError" class="inline-error" role="alert"><span>{{ library.recentError }}</span><button class="text-button" @click="library.loadRecent">重试</button></div>
-                <div v-else-if="library.recentState === 'loading' && !recentPreview.length" class="recent-loading" role="status"><LoaderCircle :size="20" class="spinning" />正在读取最近播放</div>
-                <div v-else-if="recentPreview.length" class="recent-grid"><button v-for="track in recentPreview" :key="track.mid" class="recent-track" :class="{ current: player.current?.mid === track.mid }" :aria-label="`播放 ${track.title}，${track.artist}`" @click="player.play(track, library.recentTracks)"><CoverArt :src="track.cover" /><span class="recent-track-text"><strong>{{ track.title }}</strong><small>{{ track.artist }}</small></span><AudioLines v-if="player.current?.mid === track.mid && player.playing" :size="16" class="recent-playing" /></button></div>
-                <div v-else class="recent-empty"><Clock3 :size="24" /><p>还没有播放记录</p><span>播放过的歌曲会出现在这里</span></div>
-              </section>
-            </div>
-            <div v-if="library.profile" class="section-heading playlists-heading"><h2>我的歌单<span v-if="library.playlists.length" class="section-count">{{ library.playlists.length }}</span></h2><button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('create')"><Plus :size="15" />创建歌单</button><button v-if="library.profile" class="text-button" :disabled="library.libraryState === 'loading'" @click="library.refresh"><RefreshCw :size="14" :class="{ spinning: library.libraryState === 'loading' }" />刷新歌单</button></div>
-            <div v-if="library.profile" class="playlist-filters" role="group" aria-label="歌单筛选"><button :class="{ selected: playlistFilter === 'all' }" :aria-pressed="playlistFilter === 'all'" @click="playlistFilter = 'all'">全部</button><button :class="{ selected: playlistFilter === 'created' }" :aria-pressed="playlistFilter === 'created'" @click="playlistFilter = 'created'">我创建的</button><button :class="{ selected: playlistFilter === 'collected' }" :aria-pressed="playlistFilter === 'collected'" @click="playlistFilter = 'collected'">我收藏的</button></div>
-            <div v-if="library.libraryError" class="inline-error" role="alert"><span>{{ library.libraryError }}</span><button class="text-button" @click="library.refresh">重试</button></div>
-            <p v-for="warning in library.warnings" :key="warning" class="inline-warning">{{ warning }}</p>
-            <div v-if="library.libraryState === 'loading' && !library.playlists.length" class="playlist-grid" aria-label="正在加载歌单"><div v-for="index in 4" :key="index" class="playlist-skeleton"><div></div><span></span><small></small></div></div>
-            <div v-else-if="visiblePlaylists.length" class="playlist-grid"><button v-for="playlist in visiblePlaylists" :key="playlist.id" class="playlist-card" @click="openPlaylist(playlist)"><div class="playlist-art"><CoverArt :src="playlist.cover" :alt="playlist.name" :liked="playlist.kind === 'liked'" /><span class="playlist-open"><ArrowRight :size="21" /></span></div><strong>{{ playlist.name }}</strong><span>{{ playlist.count }} 首歌曲<span class="middle-dot">·</span>{{ playlist.kind === 'collected' ? '收藏的歌单' : playlist.kind === 'liked' ? '我喜欢' : '创建的歌单' }}</span></button></div>
-            <div v-else-if="library.libraryState === 'ready'" class="empty-state"><ListMusic :size="32" :stroke-width="1.4" /><h3>{{ playlistFilter === 'collected' ? '还没有收藏的歌单' : '这里还没有歌单' }}</h3><p>在 QQ 音乐中添加歌单后，点击刷新同步。</p></div>
-          </section>
-
-          <CatalogView v-else-if="catalogView" :view="(library.view as 'artists' | 'albums' | 'artist' | 'album')" :artist-mid="library.artistMid" :album-id="library.albumId" :current-mid="player.current?.mid" :playing="player.playing" @library="goLibrary" @navigate="openCatalog" @artist="openTrackArtist" @album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="track => trackActions?.open(track)" />
+          <CatalogView v-else-if="catalogView" :view="(library.view as 'artists' | 'albums' | 'artist' | 'album')" :artist-mid="library.artistMid" :album-id="library.albumId" :current-mid="player.current?.mid" :playing="player.playing" @library="goLibrary" @navigate="openCatalog" @artist="openTrackArtist" @album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
           <DownloadsView v-else-if="library.view === 'downloads'" />
-          <SearchView v-else-if="library.view === 'search'" :keyword="library.query" :current-mid="player.current?.mid" :playing="player.playing" @query="searchTerm" @artist="mid => openCatalog('artist', mid)" @album="mid => openCatalog('album', mid)" @playlist="openPlaylist" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="track => trackActions?.open(track)" />
+          <SearchView v-else-if="library.view === 'search'" :keyword="library.query" :current-mid="player.current?.mid" :playing="player.playing" @query="searchTerm" @artist="mid => openCatalog('artist', mid)" @album="mid => openCatalog('album', mid)" @playlist="openPlaylist" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
           <section v-else class="tracks-view">
             <div v-if="library.view === 'playlist' && library.selected" class="playlist-hero"><CoverArt :src="library.selected.cover" :liked="library.selected.kind === 'liked'" class="playlist-hero-cover" /><div class="playlist-hero-info"><span class="content-kind">{{ library.selected.kind === 'liked' ? '我喜欢' : library.selected.kind === 'collected' ? '收藏的歌单' : library.selected.kind === 'public' ? '歌单' : '创建的歌单' }}</span><h1>{{ trackTitle }}</h1><p>{{ library.selected.kind === 'public' ? library.selected.creator : library.profile?.nickname }}<span class="middle-dot">·</span>{{ library.total }} 首歌曲</p><div class="playlist-actions"><button class="button primary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll()"><LoaderCircle v-if="busyAll" :size="16" class="spinning" /><Play v-else :size="15" fill="currentColor" />播放全部</button><button class="button secondary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll(true)"><Shuffle :size="16" />随机播放</button><template v-if="library.selected.kind === 'created'"><button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('rename', library.selected)">重命名</button><button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('delete', library.selected)">删除歌单</button></template></div></div></div>
             <div v-else class="page-heading tracks-heading"><div><h1>{{ trackTitle }}</h1><p>{{ library.total }} 首歌曲</p></div><button v-if="library.view === 'history' && library.tracks.length" class="button primary" :disabled="busyAll" @click="playAll()"><Play :size="15" fill="currentColor" />播放全部</button></div>
             <div v-if="library.state === 'loading'" class="empty-state" role="status"><LoaderCircle :size="28" class="spinning" /><p>正在加载歌曲</p></div>
             <div v-if="library.error" class="inline-error" role="alert"><span>{{ library.error }}</span><button class="text-button" @click="library.view === 'playlist' && library.selected ? library.openPlaylist(library.selected) : library.history()">重试</button></div>
             <div v-if="library.tracks.length" class="track-tools"><label class="track-filter"><Search :size="15" /><input v-model="trackFilter" aria-label="在歌单中查找" :placeholder="library.view === 'playlist' ? '查找歌名、歌手或专辑' : '筛选已加载的歌曲'" /></label><select v-model="trackSort" aria-label="歌曲排序"><option value="default">原始顺序</option><option value="title">按歌名</option><option value="artist">按歌手</option><option value="album">按专辑</option><option value="duration">按时长</option></select><button class="text-button" :disabled="trackSort === 'default'" :aria-label="sortDescending ? '切换升序' : '切换降序'" @click="sortDescending = !sortDescending">{{ sortDescending ? '降序' : '升序' }}</button><span class="filter-count"><LoaderCircle v-if="filterLoading" :size="13" class="spinning" />{{ filterLoading ? '正在读取完整歌单' : `${displayedTracks.length} 首` }}</span></div>
-            <TrackList v-if="library.tracks.length" :tracks="displayedTracks" :current-mid="player.current?.mid" :playing="player.playing" @artist="openTrackArtist" @album="openTrackAlbum" @play="playTrack" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="track => trackActions?.open(track)" />
+            <TrackList v-if="library.tracks.length" :tracks="displayedTracks" :current-mid="player.current?.mid" :playing="player.playing" @artist="openTrackArtist" @album="openTrackAlbum" @play="playTrack" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
             <p v-if="library.tracks.length && !displayedTracks.length && !filterLoading" class="empty-state">没有匹配的歌曲，试试其他歌名或歌手。</p>
             <div v-if="library.state === 'ready' && !library.tracks.length" class="empty-state"><Music2 :size="32" :stroke-width="1.4" /><h3>{{ library.view === 'history' ? '还没有播放记录' : '歌单中还没有歌曲' }}</h3><p>{{ library.view === 'history' ? '播放过的歌曲会出现在这里。' : '在 QQ 音乐中添加歌曲后刷新。' }}</p></div>
             <div v-if="library.hasMore" class="load-more"><button class="button secondary" :disabled="library.loadingMore" @click="library.loadMore"><LoaderCircle v-if="library.loadingMore" class="spinning" :size="15" />{{ library.loadingMore ? '正在加载' : '加载更多' }}</button><span v-if="library.view === 'playlist'">已加载 {{ library.tracks.length }} / {{ library.total }} 首</span></div>
@@ -351,7 +340,7 @@ onUnmounted(() => {
       <SettingsPanel ref="settingsPanel" :demo="demo" @logout="logout" @connect="settingsDialog?.close(); library.connect()" @companion="showCompanion" @downloads="settingsDialog?.close(); openDownloads()" />
     </dialog>
 
-    <PlaylistDialog ref="playlistDialog" /><TrackActions ref="trackActions" />
+    <PlaylistDialog ref="playlistDialog" /><TrackActions ref="trackActions" @downloads="openDownloads" />
 
     <dialog ref="queueDialog" class="queue-dialog" aria-labelledby="queue-title">
       <div class="dialog-heading"><div><h2 id="queue-title">播放队列</h2></div><button class="icon-button" aria-label="关闭待播列表" @click="queueDialog?.close()"><X :size="19" /></button></div>
@@ -359,9 +348,9 @@ onUnmounted(() => {
       <p v-if="player.restored" class="queue-hint" role="status">已恢复上次队列与进度，点击播放继续。</p>
       <div v-if="!player.queue.length" class="empty-state"><ListMusic :size="34" :stroke-width="1.2" /><p>在歌曲列表中添加，或播放一首歌。</p></div>
       <div class="queue-items">
-        <div v-for="(track, index) in player.queue" :key="track.mid" class="queue-row" :class="{ current: player.current?.mid === track.mid }">
-          <button class="queue-play" :aria-label="`播放 ${track.title}，${track.artist}`" @click="player.restored && player.current?.mid === track.mid ? player.toggle() : player.play(track)"><span class="queue-index"><AudioLines v-if="player.current?.mid === track.mid" :size="15" /><span v-else>{{ index + 1 }}</span></span><CoverArt :src="track.cover" /><span class="queue-track"><strong>{{ track.title }}</strong><small>{{ track.artist }}<span v-if="player.nextMid === track.mid" class="queue-next">下一首</span></small></span><span class="queue-duration">{{ formatTime(track.duration) }}</span></button>
-          <div class="queue-actions"><button class="icon-button small" :disabled="index === 0" :aria-label="`上移 ${track.title}`" title="上移" @click="player.moveInQueue(track.mid, -1)"><ArrowUp :size="14" /></button><button class="icon-button small" :disabled="index === player.queue.length - 1" :aria-label="`下移 ${track.title}`" title="下移" @click="player.moveInQueue(track.mid, 1)"><ArrowDown :size="14" /></button><button class="icon-button small" :disabled="player.current?.mid === track.mid" :aria-label="`移除 ${track.title}`" :title="player.current?.mid === track.mid ? '保留当前歌曲' : '从队列移除'" @click="player.removeFromQueue(track.mid)"><X :size="14" /></button></div>
+        <div v-for="(track, index) in player.queue" :key="track.mid" class="queue-row" :class="{ current: player.current?.mid === track.mid, selected: selectedQueue === track.mid }" tabindex="0" @click="selectedQueue = track.mid" @dblclick="player.play(track)" @keydown.enter.self.prevent.stop="player.play(track)">
+          <div class="queue-play"><button class="queue-index track-index" :aria-label="`${player.current?.mid === track.mid && player.playing ? '暂停' : '播放'} ${track.title}`" @click.stop="player.current?.mid === track.mid ? player.toggle() : player.play(track)" @dblclick.stop><span class="track-normal-icon"><AudioLines v-if="player.current?.mid === track.mid && player.playing" :size="15"/><span v-else>{{ index + 1 }}</span></span><span class="track-hover-icon"><Pause v-if="player.current?.mid === track.mid && player.playing" :size="13" fill="currentColor"/><Play v-else :size="13" fill="currentColor"/></span></button><CoverArt :src="track.cover" /><span class="queue-track"><strong>{{ track.title }}</strong><small>{{ track.artist }}<span v-if="player.nextMid === track.mid" class="queue-next">下一首</span></small></span><span class="queue-duration">{{ formatTime(track.duration) }}</span></div>
+          <div class="queue-actions" @click.stop @dblclick.stop><button class="icon-button small" :disabled="index === 0" :aria-label="`上移 ${track.title}`" title="上移" @click="player.moveInQueue(track.mid, -1)"><ArrowUp :size="14" /></button><button class="icon-button small" :disabled="index === player.queue.length - 1" :aria-label="`下移 ${track.title}`" title="下移" @click="player.moveInQueue(track.mid, 1)"><ArrowDown :size="14" /></button><button class="icon-button small" :disabled="player.current?.mid === track.mid" :aria-label="`移除 ${track.title}`" :title="player.current?.mid === track.mid ? '保留当前歌曲' : '从队列移除'" @click="player.removeFromQueue(track.mid)"><X :size="14" /></button></div>
         </div>
       </div>
 

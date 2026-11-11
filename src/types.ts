@@ -144,3 +144,8 @@ export interface LoginQr {
 }
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
+
+export type HomeNavigation = 'recommend' | 'discover' | 'favorites'
+export type HomeCategory = 'songs' | 'albums' | 'artists' | 'playlists'
+
+export interface TrackMenuTarget { track: Track; tracks: Track[]; anchor: HTMLElement }

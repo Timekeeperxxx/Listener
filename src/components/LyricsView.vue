@@ -17,7 +17,7 @@ const reducedMotion = ref(motionQuery.matches)
 const updateMotion = () => { reducedMotion.value = motionQuery.matches }
 onMounted(() => motionQuery.addEventListener('change', updateMotion))
 onUnmounted(() => motionQuery.removeEventListener('change', updateMotion))
-const animationActive = computed(() => player.visualActive && player.playing && player.settings.animatedBackground && !reducedMotion.value)
+const animationEnabled = computed(() => !!player.current && player.settings.animatedBackground && !reducedMotion.value)
 const displayedLines = computed(() => player.lyricLines.map(line => ({
   ...line,
   translatedLyric: props.showTranslation ? line.translatedLyric : '',
@@ -28,7 +28,9 @@ function lineClick(event: LyricLineMouseEvent) { player.seek(event.line.getLine(
 </script>
 
 <template>
-  <section class="lyrics-scene" :style="{ '--lyric-font-scale': player.settings.lyrics.fontScale / 100 }" :class="{ 'has-track': !!player.current, 'ambient-playing': animationActive }" aria-label="正在播放与歌词">
+  <section class="lyrics-scene" :style="{ '--lyric-font-scale': player.settings.lyrics.fontScale / 100 }"
+    :class="{ 'has-track': !!player.current, 'has-cover': !!player.current?.cover, 'ambient-motion': animationEnabled, 'ambient-visible': player.visualActive }"
+    aria-label="正在播放与歌词">
     <div class="lyric-ambient" :style="player.current?.cover ? { backgroundImage: `url('${player.current.cover}')` } : {}"></div>
     <div class="lyric-shade"></div>
     <div v-if="player.current" class="now-playing-layout">

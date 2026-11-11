@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ isTauri:()=>true, invoke, convertFileSrc:(value:string)=>`asset:${value}` }))
 import { api } from '../src/lib/api'
+import type { Track } from '../src/types'
 const expired = {code:'AUTH_EXPIRED',message:'登录失效'}
 describe('session renewal boundaries', () => {
   beforeEach(()=>{invoke.mockReset()})
@@ -24,5 +25,11 @@ describe('session renewal boundaries', () => {
     invoke.mockRejectedValueOnce(expired).mockResolvedValueOnce(undefined).mockRejectedValueOnce(expired)
     await expect(api.library()).rejects.toEqual(expired)
     expect(invoke).toHaveBeenCalledTimes(3)
+  })
+  it('returns the playable streaming URL after a single authenticated read renewal', async () => {
+    const source = { quality: '320 kbps', local: false, url: 'https://example.test/audio.mp3' }
+    invoke.mockRejectedValueOnce(expired).mockResolvedValueOnce(undefined).mockResolvedValueOnce(source)
+    expect(await api.source({ mid: 'test' } as Track)).toEqual(source)
+    expect(invoke.mock.calls.map(call => call[0])).toEqual(['get_source', 'renew_session', 'get_source'])
   })
 })

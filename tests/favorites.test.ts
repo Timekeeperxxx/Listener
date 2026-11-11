@@ -25,6 +25,7 @@ describe('visible favorite controls share confirmed state', () => {
     await store.loadLiked()
     expect(api.playlist).toHaveBeenCalledTimes(2)
     expect([...store.likedMids]).toEqual(['mid1', 'mid2'])
+    expect(store.likedTracks.map(track => track.mid)).toEqual(['mid1', 'mid2'])
   })
   it('waits for confirmation before filling hearts and ignores a second click while saving', async () => {
     const result = deferred<Library>()
@@ -38,6 +39,7 @@ describe('visible favorite controls share confirmed state', () => {
     result.resolve(libraryResult(1))
     await saving
     expect(store.likedMids.has('mid1')).toBe(true)
+    expect(store.likedTracks.map(track => track.mid)).toEqual(['mid1'])
     expect(store.likingMid).toBeNull()
   })
   it('a failed favorite write stays visible and leaves the heart state unconfirmed', async () => {
@@ -72,6 +74,7 @@ describe('visible favorite controls share confirmed state', () => {
     reading.resolve(page([])); await refresh
     expect(store.likedMids.has('mid1')).toBe(true)
     expect(store.likedState).toBe('ready')
+    expect(store.likedTracks.map(track => track.mid)).toEqual(['mid1'])
   })
   it('favorites arriving after logout cannot restore the old account state', async () => {
     const reading = deferred<PlaylistPage>()
@@ -82,5 +85,6 @@ describe('visible favorite controls share confirmed state', () => {
     reading.resolve(page([song(1)])); await loading
     expect(store.likedState).toBe('idle')
     expect(store.likedMids.size).toBe(0)
+    expect(store.likedTracks).toEqual([])
   })
 })

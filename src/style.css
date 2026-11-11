@@ -175,6 +175,8 @@ main { flex: 1; position: relative; min-height: 0; overflow: hidden; background:
 .dock-track > span { display: grid; min-width: 0; gap: 4px; }
 .dock-track strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #25252b; font-size: 14px; line-height: 19px; font-weight: 600; }
 .dock-track small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #66666e; }
+.dock-mix-status { position: absolute; right: 24px; bottom: calc(100% + 8px); padding: 4px 8px; border-radius: 6px; background: var(--dock, #242429); color: var(--ink, #fff); font-size: 11px; pointer-events: none; }
+.lyrics-layer .dock-mix-status { bottom: -22px; right: 0; background: transparent; color: #ffffffb8; }
 .dock-center { display: grid; gap: 7px; }
 .playback-buttons { display: flex; align-items: center; justify-content: center; gap: 16px; }
 .playback-buttons > .icon-button { padding: 3px; color: #28282d; }
@@ -212,7 +214,10 @@ input[type=range]:hover::-webkit-slider-thumb, input[type=range]:focus-visible::
 .lyrics-scene { position: absolute; inset: 0; overflow: hidden; overflow: clip; background: #25252d; }
 .lyric-ambient { position: absolute; inset: -18%; background: radial-gradient(ellipse at 25% 20%, #706a82, transparent 70%), #454553; background-size: cover; background-position: center; filter: blur(65px) saturate(.85); opacity: .7; transform: scale(1.12); }
 .lyric-shade { position: absolute; inset: 0; background: linear-gradient(90deg, #0e0e1859, #0e0e186e), linear-gradient(0deg, #0c0c174f, #0c0c170a 60%); }
-.ambient-playing .lyric-ambient { animation: ambient 36s ease-in-out infinite alternate; will-change: transform; }
+:where(.lyrics-scene.has-cover) .lyric-ambient { background-size: 100% 100%; filter: blur(65px) brightness(.76) saturate(1.6); opacity: 1; }
+:where(.lyrics-scene.has-cover) .lyric-shade { background: linear-gradient(90deg, #0b0a100d 20%, #0b0a1038 62%, #0b0a1026), linear-gradient(0deg, #0b0a103b, transparent 58%); }
+.ambient-motion .lyric-ambient { animation: ambient 18s ease-in-out infinite alternate paused; }
+.ambient-motion.ambient-visible .lyric-ambient { animation-play-state: running; will-change: transform; }
 .now-playing-layout { position: relative; z-index: 1; display: grid; grid-template-columns: var(--stage-cover) minmax(0, 1fr); align-items: center; gap: clamp(64px, 6vw, 112px); width: 100%; height: 100%; padding: 88px var(--stage-left) 48px; color: #fff; }
 .now-playing-record { width: 100%; }
 .large-cover { width: 100%; aspect-ratio: 1; border-radius: 12px; box-shadow: 0 18px 40px #00000035; }
@@ -223,7 +228,7 @@ input[type=range]:hover::-webkit-slider-thumb, input[type=range]:focus-visible::
 .audio-detail { display: flex; align-items: center; gap: 7px; margin-top: 14px; color: #ffffffa6; font-size: 12px; }
 .detail-dot { padding: 0 2px; }
 .lyric-pane { position: relative; min-height: 0; height: 100%; }
-.amll-player { width: 100%; height: 100%; font-weight: 700; line-height: 1.45; color: #fff; --amll-lp-color: #fff; --amll-lp-font-size: calc(clamp(28px, 3vw, 40px) * var(--lyric-font-scale, 1)); --amll-lp-width: 100%; --amll-lp-line-width: 100%; --amll-lp-hover-bg-color: #ffffff0c; }
+.amll-player { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; letter-spacing: normal; width: 100%; height: 100%; font-weight: 700; line-height: 1.45; color: #fff; --amll-lp-color: #fff; --amll-lp-font-size: calc(clamp(28px, 3vw, 40px) * var(--lyric-font-scale, 1)); --amll-lp-width: 100%; --amll-lp-line-width: 100%; --amll-lp-hover-bg-color: #ffffff0c; }
 /* AMLL already removes offscreen lyric groups. Its extra per-line paint clip
    cuts the 0.3em word glow at the 0.2em line padding, especially in WebKit.
    Keep layout containment and the player viewport; let each visible line glow. */
@@ -325,7 +330,11 @@ dialog::backdrop { background: #18182330; -webkit-backdrop-filter: blur(3px); ba
 .pulse-soft, .pulsing { animation: pulse 1.4s ease-in-out infinite alternate; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { from { opacity: .55; } to { opacity: 1; } }
-@keyframes ambient { from { transform: scale(1.12) translate(-1%, 1%); } to { transform: scale(1.22) translate(2%, -1%); } }
+@keyframes ambient {
+  0% { transform: translate(-4%, 2%) rotate(-8deg) scale(1.12); }
+  50% { transform: translate(2%, -4%) rotate(3deg) scale(1.18); }
+  100% { transform: translate(5%, 3%) rotate(9deg) scale(1.12); }
+}
 @media (max-width: 1100px) {
   .top-nav { gap: 4px; left: 45%; }
   .top-nav button { padding: 7px 12px; font-size: 16px; }
