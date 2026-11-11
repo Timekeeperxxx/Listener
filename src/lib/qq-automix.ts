@@ -38,9 +38,6 @@ export class QqAutoMix {
   private fading: HTMLAudioElement | null = null
   private incoming: HTMLAudioElement | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
-  private retiring = new Map<HTMLAudioElement, ReturnType<typeof setTimeout>>()
-  private rateTimer: ReturnType<typeof setInterval> | undefined
-  private rateMedia: HTMLAudioElement | null = null
 
   prepare(media: HTMLAudioElement, url: string) {
     const source = this.context.createMediaElementSource(media)
@@ -101,7 +98,7 @@ export class QqAutoMix {
   finish() {
     clearTimeout(this.timer)
     this.timer = undefined
-    if (this.fading) this.retire(this.fading)
+    if (this.fading) this.release(this.fading)
     this.fading = null
     if (!this.incoming) return
     const media = this.incoming
@@ -115,59 +112,12 @@ export class QqAutoMix {
       param.cancelScheduledValues(0)
       param.setValueAtTime(value, now)
     }
-    this.restoreRate(media)
-  }
-
-  private restoreRate(media: HTMLAudioElement) {
-    const from = media.playbackRate
-    if (Math.abs(from - 1) < 0.002) {
-      media.playbackRate = 1
-      return
-    }
-    this.stopRate()
-    this.rateMedia = media
-    let step = 0
-    // Match the QQ transition's return to normal tempo over three seconds
-    // instead of snapping the incoming track's playbackRate at the cut.
-    this.rateTimer = setInterval(() => {
-      if (!this.decks.has(media)) {
-        this.stopRate()
-        return
-      }
-      step++
-      media.playbackRate = from + (1 - from) * Math.min(step / 30, 1)
-      if (step >= 30) this.stopRate()
-    }, 100)
-  }
-
-  private stopRate() {
-    clearInterval(this.rateTimer)
-    this.rateTimer = undefined
-    this.rateMedia = null
-  }
-
-  private retire(media: HTMLAudioElement) {
-    if (!this.decks.has(media) || this.retiring.has(media)) return
-    // Pause immediately (the outgoing gain is already zero), but let the
-    // transition finish before load() tears down the decoder and audio nodes.
-    // Both are synchronous on WebKit and otherwise land exactly on the cut.
-    media.pause()
-    const timer = setTimeout(() => {
-      this.retiring.delete(media)
-      this.release(media)
-    }, 600)
-    this.retiring.set(media, timer)
+    media.playbackRate = 1
   }
 
   release(media: HTMLAudioElement) {
-    const pending = this.retiring.get(media)
-    if (pending) {
-      clearTimeout(pending)
-      this.retiring.delete(media)
-    }
     const deck = this.decks.get(media)
     if (!deck) return false
-    if (this.rateMedia === media) this.stopRate()
     media.pause()
     media.removeAttribute('src')
     media.load()
@@ -181,10 +131,7 @@ export class QqAutoMix {
 
   async dispose() {
     this.finish()
-    this.stopRate()
-    for (const timer of this.retiring.values()) clearTimeout(timer)
-    this.retiring.clear()
-    for (const media of [...this.decks.keys()]) this.release(media)
+    for (const media of this.decks.keys()) this.release(media)
     await this.context.close()
   }
 }
