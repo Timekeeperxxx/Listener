@@ -488,7 +488,9 @@ export const usePlayerStore = defineStore('player', () => {
       if (Math.abs(aligned - media.currentTime) > 0.065) media.currentTime = aligned
       graph.fade(outgoing, media, plan, played, () => {
         mixMode.value = ''
-        void prepareNext()
+        // The incoming media's next timeupdate starts preparing the following
+        // track. Doing it in this callback puts source fetching and a new Web
+        // Audio graph on the exact transition boundary.
       })
       prepared = null
       cancelPreparation()
