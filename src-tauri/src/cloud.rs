@@ -4,43 +4,31 @@ use crate::{
     models::{Library, Track},
     qq::QqMusic,
 };
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes128Gcm, Nonce,
-};
-use base64::Engine;
 use serde_json::{json, Value};
-use sha1::{Digest, Sha1};
 
-// zzc/ag-1 wire format: https://github.com/jixunmoe/qmweb-sign (MIT).
-const SCRAMBLE: [u8; 20] = [
-    89, 39, 179, 150, 218, 82, 58, 252, 177, 52, 186, 123, 120, 64, 242, 133, 143, 161, 121, 179,
-];
-pub(crate) fn web_sign(body: &[u8]) -> String {
-    let digest = Sha1::digest(body);
-    let hex = format!("{:X}", digest);
-    let pick = |indexes: &[usize]| {
-        indexes
-            .iter()
-            .map(|i| hex.as_bytes()[*i] as char)
-            .collect::<String>()
-    };
-    let middle = base64::engine::general_purpose::STANDARD
-        .encode(
-            digest
-                .iter()
-                .zip(SCRAMBLE)
-                .map(|(a, b)| a ^ b)
-                .collect::<Vec<_>>(),
-        )
-        .replace(['/', '+', '='], "");
-    format!(
-        "zzc{}{}{}",
-        pick(&[23, 14, 6, 36, 16, 7, 19]),
-        middle,
-        pick(&[16, 1, 32, 12, 19, 27, 8, 5])
-    )
-    .to_lowercase()
+const PLAYLIST_DETAIL_WRITE: &str = "music.musicasset.PlaylistDetailWrite";
+
+fn favorite_write_comm(auth: &Credentials, token: u32) -> Value {
+    // The QQ desktop request accepts QR sessions for writes to “我喜欢”.
+    json!({
+        "ct": 11,
+        "cv": 14090008,
+        "v": 14090008,
+        "format": "json",
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "notice": 0,
+        "platform": "yqq.json",
+        "needNewCode": 1,
+        "tmeAppID": "qqmusic",
+        "uid": auth.uin,
+        "qq": auth.uin,
+        "loginUin": auth.uin,
+        "authst": auth.music_key,
+        "tmeLoginType": auth.login_type.to_string(),
+        "g_tk": token,
+        "g_tk_new_20200303": token,
+    })
 }
 
 impl QqMusic {
@@ -70,55 +58,25 @@ impl QqMusic {
         method: &str,
         param: Value,
     ) -> Result<Value> {
-        let mut comm = auth.comm();
-        for (key,value) in json!({"ct":24,"cv":4747474,"platform":"yqq.json","g_tk":auth.csrf_token().parse::<u64>().expect("numeric token"),"g_tk_new_20200303":auth.csrf_token().parse::<u64>().expect("numeric token"),"inCharset":"utf-8","outCharset":"utf-8","notice":0,"needNewCode":1}).as_object().expect("object") { comm[key] = value.clone(); }
-        let data = if module == "music.musicasset.PlaylistDetailWrite" && param["dirId"] == 201 {
-            let payload =
-                json!({"comm":comm,"req":{"module":module,"method":method,"param":param}});
-            let body = serde_json::to_vec(&payload)?;
-            let cipher = Aes128Gcm::new_from_slice(&[
-                189, 48, 95, 16, 208, 255, 116, 182, 239, 84, 218, 184, 53, 181, 225, 207,
-            ])
-            .expect("AES key length");
-            let random = uuid::Uuid::new_v4();
-            let iv = &random.as_bytes()[..12];
-            let encrypted = cipher
-                .encrypt(Nonce::from_slice(iv), body.as_ref())
-                .map_err(|_| AppError::new("REQUEST_ENCRYPTION", "QQ 请求加密失败。"))?;
-            let wire = base64::engine::general_purpose::STANDARD
-                .encode([iv, encrypted.as_slice()].concat());
-            let response = self
-                .client
-                .post("https://u6.y.qq.com/cgi-bin/musics.fcg")
-                .query(&[("encoding", "ag-1"), ("sign", &web_sign(&body))])
-                .header("Cookie", auth.cookie_header())
-                .header("Content-Type", "text/plain")
-                .header("Accept", "application/octet-stream")
-                .body(wire)
-                .send()
-                .await?
-                .error_for_status()?
-                .bytes()
-                .await?;
-            let key = [
-                122, 63, 140, 29, 94, 155, 47, 10, 108, 77, 126, 139, 31, 58, 92, 157, 14, 43, 111,
-                74, 129,
-            ];
-            let plain: Vec<u8> = response
-                .iter()
-                .enumerate()
-                .map(|(i, b)| b ^ key[i % key.len()])
-                .collect();
-            let value: Value = serde_json::from_str(&String::from_utf8_lossy(&plain))?;
-            crate::qq::check_code(&value)?;
-            crate::qq::check_code(&value["req"])?;
-            value["req"]
-                .get("data")
-                .ok_or_else(|| AppError::protocol("write data"))?
-                .clone()
+        let token = auth.csrf_token().parse::<u32>().expect("numeric token");
+        let comm = if module == PLAYLIST_DETAIL_WRITE && param["dirId"] == 201 {
+            favorite_write_comm(auth, token)
         } else {
-            self.rpc(Some(auth), comm, module, method, param).await?
+            let mut comm = auth.comm();
+            comm.as_object_mut().expect("object").extend([
+                ("ct".into(), json!(24)),
+                ("cv".into(), json!(4747474)),
+                ("platform".into(), json!("yqq.json")),
+                ("g_tk".into(), json!(token)),
+                ("g_tk_new_20200303".into(), json!(token)),
+                ("inCharset".into(), json!("utf-8")),
+                ("outCharset".into(), json!("utf-8")),
+                ("notice".into(), json!(0)),
+                ("needNewCode".into(), json!(1)),
+            ]);
+            comm
         };
+        let data = self.rpc(Some(auth), comm, module, method, param).await?;
         for key in ["code", "subcode"] {
             if data
                 .get(key)
@@ -274,16 +232,21 @@ impl QqMusic {
         let kind = info["type"]
             .as_u64()
             .ok_or_else(|| AppError::protocol("song type"))?;
-        let mut param = json!({"dirId":dir,"v_songInfo":[{"songId":track.id,"songType":kind}]});
-        if dir != 201 {
-            param["tid"] = json!(id
-                .parse::<u64>()
-                .map_err(|_| AppError::protocol("playlist id"))?);
-            param["bFmtUtf8"] = json!(true);
-        }
+        let tid = if dir == 201 {
+            0
+        } else {
+            id.parse::<u64>()
+                .map_err(|_| AppError::protocol("playlist id"))?
+        };
+        let param = json!({
+            "dirId": dir,
+            "tid": tid,
+            "bFmtUtf8": true,
+            "v_songInfo": [{ "songId": track.id, "songType": kind }],
+        });
         self.write_playlist(
             auth,
-            "music.musicasset.PlaylistDetailWrite",
+            PLAYLIST_DETAIL_WRITE,
             if add { "AddSonglist" } else { "DelSonglist" },
             param,
         )
@@ -319,11 +282,24 @@ fn validate_name(name: &str) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
-    fn web_signature_matches_an_independent_sha1_fixture() {
-        assert_eq!(
-            web_sign(b"{}"),
-            "zzcf8e26805gyafigxmxjehoe02mvsjjgtwzw6f1a05f9"
-        );
+    fn favorite_write_uses_the_desktop_profile() {
+        for login_type in [1, 2] {
+            let auth = Credentials::parse(format!(
+                "uin=1234; qm_keyst=test; tmeLoginType={login_type}"
+            ))
+            .unwrap();
+            let token = auth.csrf_token().parse().unwrap();
+            let comm = favorite_write_comm(&auth, token);
+            assert_eq!(comm["ct"], 11);
+            assert_eq!(comm["cv"], 14090008);
+            assert_eq!(comm["v"], comm["cv"]);
+            assert_eq!(comm["uid"], "1234");
+            assert_eq!(comm["qq"], comm["uid"]);
+            assert_eq!(comm["loginUin"], comm["uid"]);
+            assert_eq!(comm["tmeLoginType"], login_type.to_string());
+            assert_eq!(comm["g_tk"], token);
+            assert_eq!(comm["g_tk_new_20200303"], comm["g_tk"]);
+        }
     }
     #[test]
     fn rejects_empty_or_oversized_cloud_names() {
