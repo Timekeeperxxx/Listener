@@ -30,6 +30,7 @@ import { useLibraryStore } from './stores/library'
 import { usePlayerStore } from './stores/player'
 import { api, desktop, native, errorMessage } from './lib/api'
 import { formatTime } from './lib/format'
+import type { Appearance } from './lib/preferences'
 import type { HomeNavigation, HomeCategory, Playlist, Track } from './types'
 
 const LyricsView = defineAsyncComponent(() => import('./components/LyricsView.vue'))
@@ -45,8 +46,14 @@ const homeNavigation = ref<HomeNavigation>('recommend')
 const homeCategory = ref<HomeCategory>('albums')
 const navItems: { id: HomeNavigation; label: string }[] = [{ id: 'recommend', label: '推荐' }, { id: 'discover', label: '发现' }, { id: 'favorites', label: '我的收藏' }]
 const navIndex = computed(() => navItems.findIndex(item => item.id === homeNavigation.value))
-const theme = ref<'light' | 'dark'>(localStorage.getItem('listener.appearance') === 'dark' ? 'dark' : 'light')
-watch(theme, value => localStorage.setItem('listener.appearance', value))
+const savedAppearance = localStorage.getItem('listener.appearance')
+const appearance = ref<Appearance>(savedAppearance === 'light' || savedAppearance === 'dark' ? savedAppearance : 'system')
+const systemAppearance = window.matchMedia('(prefers-color-scheme: dark)')
+const systemDark = ref(systemAppearance.matches)
+const theme = computed(() => appearance.value === 'system' ? (systemDark.value ? 'dark' : 'light') : appearance.value)
+function updateSystemAppearance(event: MediaQueryListEvent) { systemDark.value = event.matches }
+function toggleTheme() { appearance.value = theme.value === 'light' ? 'dark' : 'light' }
+watch(appearance, value => localStorage.setItem('listener.appearance', value))
 function navPointer(event: PointerEvent) { const element = event.currentTarget as HTMLElement; element.style.setProperty('--pointer-x', `${event.clientX - element.getBoundingClientRect().left}px`) }
 const playlistDialog = ref<InstanceType<typeof PlaylistDialog>>()
 const trackActions = ref<InstanceType<typeof TrackActions>>()
@@ -245,6 +252,7 @@ function keyboard(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
+  systemAppearance.addEventListener('change', updateSystemAppearance)
   document.addEventListener('keydown', keyboard)
   document.addEventListener('visibilitychange', onVisibilityChange)
   player.setVisualActive(false)
@@ -276,6 +284,7 @@ onMounted(async () => {
   await Promise.all([library.initialize(), player.initialize()])
 })
 onUnmounted(() => {
+  systemAppearance.removeEventListener('change', updateSystemAppearance)
   document.removeEventListener('keydown', keyboard)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   unlistenResize?.()
@@ -294,7 +303,7 @@ onUnmounted(() => {
       <header class="topbar" :inert="scene === 'lyrics'" :aria-hidden="scene === 'lyrics'" data-tauri-drag-region>
         <div class="window-navigation"><span v-if="demo" class="demo-traffic" aria-hidden="true"><i></i><i></i><i></i></span><button class="wordmark" aria-label="返回推荐" @click="selectNavigation('recommend')"><AudioLines :size="23" :stroke-width="1.7"/><span>listener<span class="brand-period">.</span></span></button></div>
         <nav class="top-nav glass-navigation" aria-label="主导航" @pointermove="navPointer"><span class="glass-lens" :style="{ transform: `translateX(${navIndex * 100}%)` }"></span><button v-for="item in navItems" :key="item.id" :class="{ selected: homeNavigation === item.id }" :aria-current="homeNavigation === item.id ? 'page' : undefined" @click="selectNavigation(item.id)">{{ item.label }}</button></nav>
-        <div class="topbar-actions"><span v-if="demo" class="demo-badge" title="网页演示不连接真实 QQ 账户">网页演示</span><form class="search-box" role="search" @submit.prevent="search"><Search :size="15"/><input ref="searchInput" v-model="searchText" :placeholder="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索音乐'" :aria-label="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索全部音乐'" maxlength="100" @focus="focusSearch"/><kbd>⌘ K</kbd></form><button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换夜间模式' : '切换日间模式'" @click="theme = theme === 'light' ? 'dark' : 'light'"><Moon v-if="theme === 'light'" :size="19"/><Sun v-else :size="19"/></button><button class="account-menu" :aria-label="library.profile ? '账户与设置' : '登录 QQ 音乐'" :title="library.profile?.nickname || '登录 QQ 音乐'" @click="library.profile ? showSettings() : library.connect()"><img v-if="library.profile?.avatar" :src="library.profile.avatar" alt=""/><QrCode v-else :size="19"/></button></div>
+        <div class="topbar-actions"><span v-if="demo" class="demo-badge" title="网页演示不连接真实 QQ 账户">网页演示</span><form class="search-box" role="search" @submit.prevent="search"><Search :size="15"/><input ref="searchInput" v-model="searchText" :placeholder="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索音乐'" :aria-label="homeNavigation === 'favorites' ? '搜索我的收藏' : '搜索全部音乐'" maxlength="100" @focus="focusSearch"/><kbd>⌘ K</kbd></form><button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换夜间模式' : '切换日间模式'" @click="toggleTheme"><Moon v-if="theme === 'light'" :size="19"/><Sun v-else :size="19"/></button><button class="account-menu" :aria-label="library.profile ? '账户与设置' : '登录 QQ 音乐'" :title="library.profile?.nickname || '登录 QQ 音乐'" @click="library.profile ? showSettings() : library.connect()"><img v-if="library.profile?.avatar" :src="library.profile.avatar" alt=""/><QrCode v-else :size="19"/></button></div>
       </header>
 
 
@@ -369,7 +378,7 @@ onUnmounted(() => {
     </dialog>
 
     <dialog ref="settingsDialog" class="settings-dialog settings-redesign" aria-label="设置">
-      <SettingsPanel ref="settingsPanel" :demo="demo" :theme="theme" @update:theme="value => theme = value" @close="settingsDialog?.close()" @logout="logout" @connect="settingsDialog?.close(); library.connect()" @companion="showCompanion" @downloads="settingsDialog?.close(); openDownloads()" />
+      <SettingsPanel ref="settingsPanel" v-model:appearance="appearance" :demo="demo" @close="settingsDialog?.close()" @logout="logout" @connect="settingsDialog?.close(); library.connect()" @companion="showCompanion" @downloads="settingsDialog?.close(); openDownloads()" />
     </dialog>
 
     <PlaylistDialog ref="playlistDialog" /><TrackActions ref="trackActions" @downloads="openDownloads" />

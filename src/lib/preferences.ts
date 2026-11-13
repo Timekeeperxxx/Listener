@@ -1,4 +1,7 @@
 import type { AppSettings } from '../types'
+
+export type Appearance = 'system' | 'light' | 'dark'
+
 export const defaultSettings = (): AppSettings => ({
   volume: 0.7, animatedBackground: true, lyricOffset: 0, audioQuality: 'auto',
   lyrics: { fontScale: 100, lineHeight: 1.5, showTranslation: true, showRomanization: false },

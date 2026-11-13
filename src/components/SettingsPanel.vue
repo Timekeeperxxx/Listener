@@ -3,19 +3,19 @@ import { computed, markRaw, onMounted, onUnmounted, ref, watch } from 'vue'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import {
   Captions, Check, ChevronDown, Command, Download, HardDrive, LoaderCircle,
-  LogOut, Moon, Palette, Play, QrCode, RefreshCw, RotateCcw, Sun, UserRound, X,
+  LogOut, Monitor, Moon, Palette, Play, QrCode, RefreshCw, RotateCcw, Sun, UserRound, X,
 } from '@lucide/vue'
 import { api, desktop, errorMessage } from '../lib/api'
-import { defaultSettings } from '../lib/preferences'
+import { defaultSettings, type Appearance } from '../lib/preferences'
 import { useLibraryStore } from '../stores/library'
 import { usePlayerStore } from '../stores/player'
 import type { ShortcutSettings, StorageUsage, UpdateInfo } from '../types'
 import packageInfo from '../../package.json'
 
-const props = defineProps<{ demo?: boolean; theme: 'light' | 'dark' }>()
+const props = defineProps<{ demo?: boolean }>()
+const appearance = defineModel<Appearance>('appearance', { required: true })
 const emit = defineEmits<{
   close: []; logout: []; connect: []; companion: [kind: 'mini' | 'desktop-lyrics']; downloads: []
-  'update:theme': [theme: 'light' | 'dark']
 }>()
 const library = useLibraryStore(), player = usePlayerStore()
 
@@ -44,7 +44,6 @@ const shortcutActions: { id: 'toggle' | 'next' | 'previous' | 'main'; name: stri
 ]
 
 function bytes(value: number) { return value >= 1024 * 1024 ? `${(value / 1024 / 1024).toFixed(1)} MB` : `${(value / 1024).toFixed(1)} KB` }
-function setTheme(value: 'light' | 'dark') { emit('update:theme', value) }
 function lyrics(values: Partial<typeof player.settings.lyrics>) { player.updateSettings({ lyrics: { ...player.settings.lyrics, ...values } }) }
 function setQuality(event: Event) { player.updateSettings({ audioQuality: (event.target as HTMLSelectElement).value as typeof player.settings.audioQuality }) }
 function setCacheLimit(event: Event) { player.updateSettings({ cacheLimitMb: Number((event.target as HTMLSelectElement).value) }) }
@@ -174,9 +173,10 @@ defineExpose({ refresh })
           <div class="settings-group">
             <h3>主题</h3>
             <div class="settings-card">
-              <div class="settings-row"><div class="settings-row-copy"><strong>界面外观</strong><p>跟随你的偏好，立即应用到整个窗口。</p></div><div class="settings-segmented" role="group" aria-label="界面外观">
-                <button :class="{ selected: theme === 'light' }" :aria-pressed="theme === 'light'" @click="setTheme('light')"><Sun :size="14" />浅色</button>
-                <button :class="{ selected: theme === 'dark' }" :aria-pressed="theme === 'dark'" @click="setTheme('dark')"><Moon :size="14" />深色</button>
+              <div class="settings-row"><div class="settings-row-copy"><strong>界面外观</strong><p>可随系统自动切换，也可固定使用浅色或深色。</p></div><div class="settings-segmented" role="group" aria-label="界面外观">
+                <button :class="{ selected: appearance === 'system' }" :aria-pressed="appearance === 'system'" @click="appearance = 'system'"><Monitor :size="14" />跟随系统</button>
+                <button :class="{ selected: appearance === 'light' }" :aria-pressed="appearance === 'light'" @click="appearance = 'light'"><Sun :size="14" />浅色</button>
+                <button :class="{ selected: appearance === 'dark' }" :aria-pressed="appearance === 'dark'" @click="appearance = 'dark'"><Moon :size="14" />深色</button>
               </div></div>
               <div class="settings-row"><div class="settings-row-copy"><strong>歌词流动背景</strong><p>歌词页随封面颜色变化的柔和动态背景。</p></div><button class="settings-switch" :class="{ on: player.settings.animatedBackground }" role="switch" :aria-checked="player.settings.animatedBackground" aria-label="歌词流动背景" @click="player.updateSettings({ animatedBackground: !player.settings.animatedBackground })"><span></span></button></div>
             </div>
