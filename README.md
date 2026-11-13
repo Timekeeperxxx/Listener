@@ -2,7 +2,7 @@
 
 Listener 是一款接入 QQ 音乐的轻量播放器，支持 macOS 和 iPhone。macOS 版使用 Tauri 2、Vue 3 和 AMLL 歌词渲染。iPhone 版使用原生 SwiftUI、系统 Liquid Glass 和 AVPlayer。两端共享负责 QQ 音乐接口和本地资料库的 Rust 核心。
 
-[下载已发布的 macOS 版](https://github.com/Timekeeperxxx/Listener/releases/latest) · [本轮开发记录](docs/updates/native-iphone-and-lyrics.md) · [构建 iPhone 版](#原生-iphone-项目)
+[下载 macOS DMG 或 iPhone IPA](https://github.com/Timekeeperxxx/Listener/releases/latest) · [0.6.0 更新说明](docs/releases/0.6.0.md) · [构建 iPhone 版](#原生-iphone-项目)
 
 ## 界面截图
 
@@ -79,7 +79,7 @@ npm run release:manifest
 - 同目录下的 `Listener.app.tar.gz`、`.sig` 和 `latest.json`
 - `src-tauri/target/release/bundle/dmg/Listener_版本_aarch64.dmg` 及 SHA-256 文件
 
-将更新包、签名、清单和 DMG 上传到同一个 `v版本` GitHub Release。客户端从本仓库最新正式 Release 读取清单，下载后校验签名及签名绑定的版本。构建架构改变时需给清单脚本传入正确架构，并通过 `LISTENER_BUNDLE_DIR` 指定对应产物目录。
+将 macOS 更新包、签名、清单、DMG 和 iPhone IPA 上传到同一个 `v版本` GitHub Release。macOS 客户端从最新正式 Release 读取清单，下载后校验签名及签名绑定的版本。构建架构改变时需给清单脚本传入正确架构，并通过 `LISTENER_BUNDLE_DIR` 指定对应产物目录。
 
 DMG 由 `hdiutil` 创建和验证，避免构建期间调用 Finder。当前应用为本地 ad-hoc 签名，尚未做 Apple Developer ID 公证；更新包签名与 Apple 公证是两件不同的事。
 
