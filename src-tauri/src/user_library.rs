@@ -49,10 +49,7 @@ impl Database {
     pub fn saved_catalog(&self, owner: &str) -> Result<SavedCatalog> {
         let db = self.connection()?;
         let mut statement=db.prepare("SELECT kind,payload FROM saved_catalog WHERE owner=?1 ORDER BY saved_at DESC,rowid DESC")?;
-        let mut result = SavedCatalog {
-            artists: vec![],
-            albums: vec![],
-        };
+        let mut result = SavedCatalog::default();
         for row in statement.query_map([owner], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
         })? {
@@ -173,6 +170,7 @@ mod tests {
             &SavedCatalog {
                 artists: vec![artist.clone()],
                 albums: vec![],
+                ..SavedCatalog::default()
             },
         )
         .unwrap();
@@ -218,6 +216,7 @@ mod tests {
             &SavedCatalog {
                 artists: vec![first.clone(), second.clone()],
                 albums: vec![album],
+                ..SavedCatalog::default()
             },
         )
         .unwrap();
@@ -232,6 +231,7 @@ mod tests {
             &SavedCatalog {
                 artists: vec![second],
                 albums: vec![],
+                ..SavedCatalog::default()
             },
         )
         .unwrap();

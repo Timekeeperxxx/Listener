@@ -304,14 +304,19 @@ impl QqMusic {
         auth: Option<&Credentials>,
         mid: &str,
         offset: u64,
+        order: ArtistSongOrder,
     ) -> Result<CatalogPage<Track>> {
         validate_mid(mid)?;
+        let order = match order {
+            ArtistSongOrder::Popular => 1,
+            ArtistSongOrder::Newest => 0,
+        };
         let data = self
             .catalog_rpc(
                 auth,
                 "musichall.song_list_server",
                 "GetSingerSongList",
-                json!({"singerMid":mid,"begin":offset,"num":50,"order":1}),
+                json!({"singerMid":mid,"begin":offset,"num":50,"order":order}),
             )
             .await?;
         let items = array(&data, "/songList")?

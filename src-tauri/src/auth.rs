@@ -175,7 +175,7 @@ impl Credentials {
 
 fn entry() -> Result<keyring::Entry> {
     keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|_| AppError::new("KEYCHAIN_ERROR", "无法访问 macOS 钥匙串。"))
+        .map_err(|_| AppError::new("KEYCHAIN_ERROR", "无法访问 系统钥匙串。"))
 }
 
 pub fn load() -> Result<Option<Credentials>> {
@@ -184,7 +184,7 @@ pub fn load() -> Result<Option<Credentials>> {
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(_) => Err(AppError::new(
             "KEYCHAIN_ERROR",
-            "无法读取 macOS 钥匙串中的登录信息。",
+            "无法读取 系统钥匙串中的登录信息。",
         )),
     }
 }
@@ -193,7 +193,7 @@ pub fn save(credentials: &Credentials) -> Result<()> {
     entry()?.set_password(&credentials.cookie).map_err(|_| {
         AppError::new(
             "KEYCHAIN_ERROR",
-            "登录信息未能保存到 macOS 钥匙串，请重新连接。",
+            "登录信息未能保存到 系统钥匙串，请重新连接。",
         )
     })
 }
@@ -203,7 +203,7 @@ pub fn delete() -> Result<()> {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(_) => Err(AppError::new(
             "KEYCHAIN_ERROR",
-            "无法从 macOS 钥匙串移除登录信息。",
+            "无法从 系统钥匙串移除登录信息。",
         )),
     }
 }

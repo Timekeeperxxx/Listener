@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
-import { api, desktop, errorMessage } from '../lib/api'
+import { api, native, errorMessage } from '../lib/api'
 import { parseInWorker } from '../lib/lyric-client'
 import type { ParsedLyrics } from '../lib/lyrics'
 import { defaultSettings } from '../lib/preferences'
@@ -26,6 +26,7 @@ export const usePlayerStore = defineStore('player', () => {
   const lyricWarnings = ref<string[]>([])
   const lyricLines = shallowRef<LyricLine[]>([])
   const lyricMode = ref<'word' | 'line' | 'none'>('none')
+  const seekRevision = ref(0)
   const notice = ref('')
   const repeat = ref<'off' | 'all' | 'one'>('off')
   const shuffle = ref(false)
@@ -252,7 +253,7 @@ export const usePlayerStore = defineStore('player', () => {
   function persistPlayback(): Promise<void> {
     revision++
     restoreFailure = ''
-    if (!desktop || !playbackOwner) return Promise.resolve()
+    if (!native || !playbackOwner) return Promise.resolve()
     const owner = playbackOwner
     const playback: PlaybackState = {
       queue: [...queue.value], currentMid: current.value ? current.value.mid : null,
@@ -381,14 +382,14 @@ export const usePlayerStore = defineStore('player', () => {
   watch([() => settings.value.preloadNext, () => settings.value.audioQuality], planNext)
 
   async function initialize() {
-    if (!desktop) return
+    if (!native) return
     try { settings.value = await api.settings(); audio.volume = settings.value.volume }
     catch (cause) { notice.value = errorMessage(cause) }
   }
 
   async function loadTrackOffset(track: Track, request: number) {
     trackOffset.value = 0; trackOffsetError.value = ''
-    if (!desktop) return
+    if (!native) return
     try { const value = await api.lyricOffset(track.mid); if (request === generation) trackOffset.value = value }
     catch (cause) { if (request === generation) trackOffsetError.value = errorMessage(cause) }
   }
@@ -592,15 +593,20 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seek(seconds: number) {
-    if (!audio.getAttribute('src') || !Number.isFinite(seconds)) return
+    if (!current.value || !Number.isFinite(seconds)) return
     if (startingBlend) cancelPreparation()
     stopBlend()
     const target = Math.max(0, Math.min(seconds, duration.value))
     // WebKit applies currentTime asynchronously. Keep the UI and lyric clock on
     // the requested position until the media reports the seeked position.
-    seekTarget = { seconds: target, until: performance.now() + 1_200 }
-    audio.currentTime = target
+    if (audio.getAttribute('src')) {
+      seekTarget = { seconds: target, until: performance.now() + 1_200 }
+      audio.currentTime = target
+    } else {
+      resumePosition = target
+    }
     time.value = Math.round(target * 1000)
+    seekRevision.value++
     checkpoint = time.value
     void persistPlayback()
   }
@@ -718,7 +724,7 @@ export const usePlayerStore = defineStore('player', () => {
     }
     audio.volume = settings.value.volume
     clearTimeout(saveTimer)
-    if (desktop) saveTimer = setTimeout(() => {
+    if (native) saveTimer = setTimeout(() => {
       saveTimer = undefined
       void saveSettings()
     }, 250)
@@ -773,7 +779,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   return { current, queue, playing, buffering, time, duration, quality, sourceState, playbackError, lyricState,
-    lyricError, lyricWarnings, lyricLines, lyricMode, lyricTime, notice, repeat, shuffle, settings, progress,
+    lyricError, lyricWarnings, lyricLines, lyricMode, lyricTime, seekRevision, notice, repeat, shuffle, settings, progress,
     trackOffset, trackOffsetError, updateTrackOffset, updateShortcuts, preloadState, preloadError, upcoming,
     visualActive, currentIndex, nextMid, restored, sleepDeadline, sleepAfterTrack, sleepRemaining, setSleepTimer, checkSleepTimer, pause,
     mixState, mixError, mixMode, initialize, play, toggle, seek, next, previous, cycleRepeat,

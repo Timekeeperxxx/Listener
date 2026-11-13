@@ -74,7 +74,15 @@ function keyboard(event: KeyboardEvent) {
   const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : index < 0 ? (event.key === 'ArrowDown' ? 0 : buttons.length - 1) : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
   buttons[next]!.focus({ preventScroll: true }); buttons[next]!.scrollIntoView({ block: 'nearest' })
 }
-function play() { const target = context.value!; if (target.track.mid === player.current?.mid) void player.toggle(); else void player.play(target.track, target.tracks); close() }
+function play() {
+  const target = context.value!
+  if (target.track.mid === player.current?.mid) void player.toggle()
+  else {
+    if (target.sequential && player.shuffle) player.setShuffle(false)
+    void player.play(target.track, target.tracks)
+  }
+  close()
+}
 function enqueue(next: boolean) { player.enqueue(context.value!.track, next); close() }
 async function like() { const target = context.value!, epoch = accountEpoch; await library.toggleLike(target.track); if (epoch === accountEpoch && context.value === target && !library.favoriteError) close() }
 async function mutate(id: string, name: string, add: boolean) {

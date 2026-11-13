@@ -15,7 +15,9 @@
     "demo": "vite --host 127.0.0.1 --port 4173",
     "build:demo": "vue-tsc --noEmit && vite build --config vite.demo.config.ts",
     "mac:build:unsigned": "node scripts/macos.mjs build --unsigned --bundles app && node scripts/package-dmg.mjs",
-    "release:manifest": "node scripts/release-manifest.mjs"
+    "release:manifest": "node scripts/release-manifest.mjs",
+    "ios:build": "node scripts/ios.mjs",
+    "ios:native:build": "node scripts/ios.mjs"
   },
   "dependencies": {
     "@applemusic-like-lyrics/core": "^0.6.0",

@@ -11,11 +11,15 @@ rust-version = "1.90"
 name = "listener_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+native-ios = ["dep:amll-lyric", "tokio/rt-multi-thread"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+cc = "1"
 
 [dependencies]
-tauri = { version = "2.12", features = ["macos-private-api", "image-png", "protocol-asset", "tray-icon"] }
+tauri = { version = "2.12", features = ["macos-private-api", "image-png", "protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "cookies"] }
@@ -28,6 +32,10 @@ base64 = "0.22"
 regex = "1"
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
+amll-lyric = { version = "0.3.0", optional = true, default-features = false, features = ["eqrc", "lrc", "qrc", "serde"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2.12", features = ["macos-private-api", "protocol-asset", "tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
 

@@ -62,6 +62,34 @@ describe('QQ catalog independent of the personal library', () => {
     expect(queue.map(t => t.mid)).toEqual(['qqsong', 'second', 'third'])
     expect(api.artistSongs.mock.calls.map(args => args[1])).toEqual([0, 1, 2])
   })
+  it('paginates release order independently and keeps it in the playback queue', async () => {
+    detail()
+    const latest = { ...song, mid: 'latest' }
+    const earlier = { ...song, mid: 'earlier' }
+    api.artistSongs.mockImplementation((_mid, offset, order) => Promise.resolve(
+      order === 'popular' ? page([song]) : offset === 0 ? page([latest], 2, 1) : page([earlier], 2, 2),
+    ))
+    const catalog = useCatalogStore()
+    await catalog.loadArtist(ref.mid)
+    await catalog.loadArtistSongs('newest')
+    expect(await catalog.completeArtistSongs('newest')).toEqual([latest, earlier])
+    expect(await catalog.completeArtistSongs('popular')).toEqual([song])
+    expect(api.artistSongs.mock.calls).toEqual([[ref.mid, 0, 'popular'], [ref.mid, 0, 'newest'], [ref.mid, 1, 'newest']])
+  })
+  it('surfaces release-order failure and retries its first page without replacing the popular list', async () => {
+    detail()
+    const catalog = useCatalogStore()
+    await catalog.loadArtist(ref.mid)
+    api.artistSongs.mockRejectedValueOnce(new Error('排序请求失败'))
+    await catalog.loadArtistSongs('newest')
+    expect(catalog.newestSongs).toMatchObject({ state: 'error', error: '排序请求失败', items: [] })
+    expect(catalog.songs.items).toEqual([song])
+    const latest = { ...song, mid: 'latest' }
+    api.artistSongs.mockResolvedValueOnce(page([latest]))
+    await catalog.loadArtistSongs('newest')
+    expect(api.artistSongs).toHaveBeenLastCalledWith(ref.mid, 0, 'newest')
+    expect(catalog.newestSongs).toMatchObject({ state: 'ready', items: [latest] })
+  })
   it('does not return a partial artist queue if the remaining catalog fails to load', async () => {
     detail(); const catalog = useCatalogStore(); await catalog.loadArtist(ref.mid)
     api.artistSongs.mockRejectedValueOnce(new Error('QQ unavailable'))

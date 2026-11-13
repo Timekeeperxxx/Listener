@@ -13,6 +13,7 @@ import FavoriteButton from './components/FavoriteButton.vue'
 import TrackList from './components/TrackList.vue'
 import DownloadsView from './components/DownloadsView.vue'
 import PlaylistDialog from './components/PlaylistDialog.vue'
+import PlaylistFavoriteButton from './components/PlaylistFavoriteButton.vue'
 import TrackActions from './components/TrackActions.vue'
 import PlayerDock from './components/PlayerDock.vue'
 import CatalogView from './components/CatalogView.vue'
@@ -27,7 +28,7 @@ import { bindCompanions } from './lib/companion'
 import { filterTracks, type TrackSort } from './lib/track-filter'
 import { useLibraryStore } from './stores/library'
 import { usePlayerStore } from './stores/player'
-import { api, desktop, errorMessage } from './lib/api'
+import { api, desktop, native, errorMessage } from './lib/api'
 import { formatTime } from './lib/format'
 import type { HomeNavigation, HomeCategory, Playlist, Track } from './types'
 
@@ -84,7 +85,6 @@ let visibilityVersion = 0
 
 const likedPlaylist = computed(() => library.playlists.find(p => p.kind === 'liked'))
 const visiblePlaylists = computed(() => playlistFilter.value === 'all' ? library.playlists : library.playlists.filter(p => p.kind === playlistFilter.value))
-const recentPreview = computed(() => library.recentTracks.slice(0, 6))
 const catalogView = computed(() => ['artists', 'albums', 'artist', 'album'].includes(library.view))
 function openCatalog(view: 'artists' | 'albums' | 'artist' | 'album', id = '') { if (view === 'artists' || view === 'albums') { browse(view); return }; setScene('library'); library.showCatalog(view, id) }
 function goBack() { if (catalogView.value) library.backCatalog(); else goLibrary() }
@@ -107,13 +107,22 @@ async function openTrackAlbum(track: Track) {
   } catch (cause) { if (request === catalogLinkRequest) uiError.value = errorMessage(cause) }
 }
 
-function playCatalog(track: Track, tracks: Track[]) { void player.play(track, tracks) }
+function playCatalog(track: Track, tracks: Track[]) {
+  if (library.view === 'artist' && player.shuffle) player.setShuffle(false)
+  void player.play(track, tracks)
+}
 function shuffleCatalog(tracks: Track[]) { if (tracks.length) { player.setShuffle(true); void player.play(tracks[Math.floor(Math.random() * tracks.length)], tracks) } }
-const trackTitle = computed(() => library.view === 'playlist' ? library.selected?.name : library.view === 'search' ? `“${library.query}”` : '最近播放')
-const notices = computed(() => [uiError.value, library.loginError, library.favoriteError, player.notice, savedCatalog.error].filter(Boolean))
+const playlistKind = { liked: '我喜欢', collected: '收藏的歌单', created: '创建的歌单', public: '歌单', chart: '排行榜' }
+const playlistCredit = computed(() => {
+  const playlist = library.selected
+  if (!playlist) return ''
+  if (playlist.kind === 'chart') return 'QQ 音乐'
+  return playlist.kind === 'public' ? playlist.creator : library.profile?.nickname
+})
+const notices = computed(() => [uiError.value, !library.loginOpen && library.loginError, library.favoriteError, library.playlistFavoriteError, player.notice, savedCatalog.error].filter(Boolean))
 watch(() => library.profile?.uin, owner => {
   catalog.reset(); searchStore.reset(); savedCatalog.reset(); discovery.reset()
-  if (owner) { void savedCatalog.load(); void searchStore.loadHistory(); void player.restorePlayback(owner); void library.loadRecent(); downloads.clear(); void downloads.load() }
+  if (owner) { void savedCatalog.load(); void searchStore.loadHistory(); void player.restorePlayback(owner); downloads.clear(); void downloads.load() }
   else { player.reset(); downloads.clear() }
 })
 watch(() => library.loginOpen, async open => {
@@ -173,11 +182,14 @@ async function observeVisibility() {
   player.setVisualActive(windowVisible.value && !windowMinimized.value && scene.value === 'lyrics')
 }
 
+function onVisibilityChange() {
+  void observeVisibility()
+}
+
 function setScene(value: 'library' | 'lyrics') { scene.value = value; void observeVisibility() }
 function goLibrary() { setScene('library'); library.showLibrary() }
 function selectNavigation(value: HomeNavigation) { homeNavigation.value = value; homeCategory.value = value === 'favorites' ? 'songs' : 'albums'; searchText.value = ''; goLibrary() }
 function browse(category: HomeCategory) { selectNavigation('discover'); homeCategory.value = category }
-async function playPlaylist(playlist: Playlist) { await openPlaylist(playlist); if (library.state === 'ready' && library.selected?.id === playlist.id) await playAll() }
 async function playLiked() {
   if (!likedPlaylist.value) return
   await openPlaylist(likedPlaylist.value)
@@ -187,10 +199,6 @@ async function openPlaylist(playlist: Playlist) { setScene('library'); await lib
 async function openLiked() {
   if (!library.profile) { await library.connect(); return }
   if (likedPlaylist.value) await openPlaylist(likedPlaylist.value)
-}
-async function openHistory() {
-  if (!library.profile) { await library.connect(); return }
-  setScene('library'); await library.history()
 }
 async function search() {
   if (!searchText.value.trim()) return
@@ -221,7 +229,7 @@ async function logout() {
 }
 function searchTerm(keyword: string) { searchText.value = keyword; void search() }
 function focusSearch() { if (!library.profile) return; setScene('library'); if (homeNavigation.value === 'favorites') library.showLibrary(); else if (!searchText.value.trim()) library.search('') }
-function dismissNotices() { uiError.value = ''; player.notice = ''; library.loginError = ''; library.favoriteError = ''; savedCatalog.error = '' }
+function dismissNotices() { uiError.value = ''; player.notice = ''; library.loginError = ''; library.favoriteError = ''; library.playlistFavoriteError = ''; savedCatalog.error = '' }
 function setVolume(event: Event) { player.updateSettings({ volume: Number((event.target as HTMLInputElement).value) }) }
 function seek(event: Event) { player.seek(Number((event.target as HTMLInputElement).value)) }
 function keyboard(event: KeyboardEvent) {
@@ -238,10 +246,13 @@ function keyboard(event: KeyboardEvent) {
 
 onMounted(async () => {
   document.addEventListener('keydown', keyboard)
-  document.addEventListener('visibilitychange', observeVisibility)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   player.setVisualActive(false)
-  if (desktop) {
+  if (native) {
     unlistenDownload = await listen<{ owner: string; mid: string; received: number; total: number | null }>('download-progress', event => { if (event.payload.owner === library.profile?.uin) downloads.progress(event.payload) })
+    renewalTimer = setInterval(() => { if (library.profile && !library.profile.offline) void api.renew().catch(cause => { uiError.value = `登录续期失败：${errorMessage(cause)}` }) }, 15 * 60 * 1000)
+  }
+  if (desktop) {
     stopCompanions = await bindCompanions(player)
     unlistenDesktop = await listen<string>('desktop-action', event => {
       if (event.payload === 'toggle') void player.toggle()
@@ -250,7 +261,6 @@ onMounted(async () => {
       else if (event.payload === 'lyrics') setScene(scene.value === 'lyrics' ? 'library' : 'lyrics')
       else if (event.payload === 'quit') void quitApp()
     })
-    renewalTimer = setInterval(() => { if (library.profile && !library.profile.offline) void api.renew().catch(cause => { uiError.value = `登录续期失败：${errorMessage(cause)}` }) }, 15 * 60 * 1000)
     const window = getCurrentWindow()
     unlistenFocus = await window.onFocusChanged(() => { void observeVisibility() })
     unlistenResize = await window.onResized(() => { void observeVisibility() })
@@ -267,7 +277,7 @@ onMounted(async () => {
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', keyboard)
-  document.removeEventListener('visibilitychange', observeVisibility)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   unlistenResize?.()
   unlistenClose?.()
   unlistenDesktop?.()
@@ -293,21 +303,38 @@ onUnmounted(() => {
         <div ref="contentScroll" class="content-scroll">
           <div v-if="library.profile?.offline" class="inline-warning offline-banner">当前离线，只能播放已下载歌曲和查看本地记录。<button class="text-button" @click="library.initialize">重新连接</button></div>
           <button v-if="library.view !== 'library'" class="back-link" @click="goBack"><ChevronLeft :size="15"/>返回{{ homeNavigation === 'recommend' ? '推荐' : homeNavigation === 'discover' ? '发现' : '我的收藏' }}</button>
-          <HomeView v-if="library.view === 'library'" v-model:category="homeCategory" :navigation="homeNavigation" :keyword="homeNavigation === 'favorites' ? searchText : ''" :busy="busyAll" @browse="browse" @search="searchTerm" @downloads="openDownloads" @playlist="openPlaylist" @play-playlist="playPlaylist" @history="openHistory" @create-playlist="playlistDialog?.open('create')" @album="mid => openCatalog('album', mid)" @artist="mid => openCatalog('artist', mid)" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)"/>
+          <HomeView v-if="library.view === 'library'" v-model:category="homeCategory" :navigation="homeNavigation" :keyword="homeNavigation === 'favorites' ? searchText : ''" :busy="busyAll" @browse="browse" @search="searchTerm" @downloads="openDownloads" @playlist="openPlaylist" @create-playlist="playlistDialog?.open('create')" @album="mid => openCatalog('album', mid)" @artist="mid => openCatalog('artist', mid)" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)"/>
 
           <CatalogView v-else-if="catalogView" :view="(library.view as 'artists' | 'albums' | 'artist' | 'album')" :artist-mid="library.artistMid" :album-id="library.albumId" :current-mid="player.current?.mid" :playing="player.playing" @library="goLibrary" @navigate="openCatalog" @artist="openTrackArtist" @album="openTrackAlbum" @play="playCatalog" @shuffle="shuffleCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
           <DownloadsView v-else-if="library.view === 'downloads'" />
           <SearchView v-else-if="library.view === 'search'" :keyword="library.query" :current-mid="player.current?.mid" :playing="player.playing" @query="searchTerm" @artist="mid => openCatalog('artist', mid)" @album="mid => openCatalog('album', mid)" @playlist="openPlaylist" @track-artist="openTrackArtist" @track-album="openTrackAlbum" @play="playCatalog" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
-          <section v-else class="tracks-view">
-            <div v-if="library.view === 'playlist' && library.selected" class="playlist-hero"><CoverArt :src="library.selected.cover" :liked="library.selected.kind === 'liked'" class="playlist-hero-cover" /><div class="playlist-hero-info"><span class="content-kind">{{ library.selected.kind === 'liked' ? '我喜欢' : library.selected.kind === 'collected' ? '收藏的歌单' : library.selected.kind === 'public' ? '歌单' : '创建的歌单' }}</span><h1>{{ trackTitle }}</h1><p>{{ library.selected.kind === 'public' ? library.selected.creator : library.profile?.nickname }}<span class="middle-dot">·</span>{{ library.total }} 首歌曲</p><div class="playlist-actions"><button class="button primary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll()"><LoaderCircle v-if="busyAll" :size="16" class="spinning" /><Play v-else :size="15" fill="currentColor" />播放全部</button><button class="button secondary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll(true)"><Shuffle :size="16" />随机播放</button><template v-if="library.selected.kind === 'created'"><button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('rename', library.selected)">重命名</button><button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('delete', library.selected)">删除歌单</button></template></div></div></div>
-            <div v-else class="page-heading tracks-heading"><div><h1>{{ trackTitle }}</h1><p>{{ library.total }} 首歌曲</p></div><button v-if="library.view === 'history' && library.tracks.length" class="button primary" :disabled="busyAll" @click="playAll()"><Play :size="15" fill="currentColor" />播放全部</button></div>
+          <section v-else-if="library.view === 'playlist' && library.selected" class="tracks-view">
+            <div class="playlist-hero">
+              <CoverArt :src="library.selected.cover" :liked="library.selected.kind === 'liked'" class="playlist-hero-cover"/>
+              <div class="playlist-hero-info">
+                <span class="content-kind">{{ playlistKind[library.selected.kind] }}</span>
+                <h1>{{ library.selected.name }}</h1>
+                <p><template v-if="playlistCredit">{{ playlistCredit }}<span class="middle-dot">·</span></template>{{ library.total }} 首歌曲</p>
+                <div class="playlist-actions">
+                  <button class="button primary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll()">
+                    <LoaderCircle v-if="busyAll" :size="16" class="spinning"/><Play v-else :size="15" fill="currentColor"/>播放全部
+                  </button>
+                  <button class="button secondary" :disabled="!library.tracks.length || busyAll || filterLoading" @click="playAll(true)"><Shuffle :size="16"/>随机播放</button>
+                  <PlaylistFavoriteButton v-if="library.selected.id !== discovery.daily?.playlist.id" :playlist="library.selected"/>
+                  <template v-if="library.selected.kind === 'created'">
+                    <button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('rename', library.selected)">重命名</button>
+                    <button class="text-button" :disabled="library.profile?.offline" @click="playlistDialog?.open('delete', library.selected)">删除歌单</button>
+                  </template>
+                </div>
+              </div>
+            </div>
             <div v-if="library.state === 'loading'" class="empty-state" role="status"><LoaderCircle :size="28" class="spinning" /><p>正在加载歌曲</p></div>
-            <div v-if="library.error" class="inline-error" role="alert"><span>{{ library.error }}</span><button class="text-button" @click="library.view === 'playlist' && library.selected ? library.openPlaylist(library.selected) : library.history()">重试</button></div>
-            <div v-if="library.tracks.length" class="track-tools"><label class="track-filter"><Search :size="15" /><input v-model="trackFilter" aria-label="在歌单中查找" :placeholder="library.view === 'playlist' ? '查找歌名、歌手或专辑' : '筛选已加载的歌曲'" /></label><select v-model="trackSort" aria-label="歌曲排序"><option value="default">原始顺序</option><option value="title">按歌名</option><option value="artist">按歌手</option><option value="album">按专辑</option><option value="duration">按时长</option></select><button class="text-button" :disabled="trackSort === 'default'" :aria-label="sortDescending ? '切换升序' : '切换降序'" @click="sortDescending = !sortDescending">{{ sortDescending ? '降序' : '升序' }}</button><span class="filter-count"><LoaderCircle v-if="filterLoading" :size="13" class="spinning" />{{ filterLoading ? '正在读取完整歌单' : `${displayedTracks.length} 首` }}</span></div>
+            <div v-if="library.error" class="inline-error" role="alert"><span>{{ library.error }}</span><button class="text-button" @click="openPlaylist(library.selected!)">重试</button></div>
+            <div v-if="library.tracks.length" class="track-tools"><label class="track-filter"><Search :size="15" /><input v-model="trackFilter" aria-label="在歌单中查找" placeholder="查找歌名、歌手或专辑" /></label><select v-model="trackSort" aria-label="歌曲排序"><option value="default">原始顺序</option><option value="title">按歌名</option><option value="artist">按歌手</option><option value="album">按专辑</option><option value="duration">按时长</option></select><button class="text-button" :disabled="trackSort === 'default'" :aria-label="sortDescending ? '切换升序' : '切换降序'" @click="sortDescending = !sortDescending">{{ sortDescending ? '降序' : '升序' }}</button><span class="filter-count"><LoaderCircle v-if="filterLoading" :size="13" class="spinning" />{{ filterLoading ? '正在读取完整歌单' : `${displayedTracks.length} 首` }}</span></div>
             <TrackList v-if="library.tracks.length" :tracks="displayedTracks" :current-mid="player.current?.mid" :playing="player.playing" @artist="openTrackArtist" @album="openTrackAlbum" @play="playTrack" @play-next="track => player.enqueue(track, true)" @enqueue="player.enqueue" @actions="target => trackActions?.open(target)" />
             <p v-if="library.tracks.length && !displayedTracks.length && !filterLoading" class="empty-state">没有匹配的歌曲，试试其他歌名或歌手。</p>
-            <div v-if="library.state === 'ready' && !library.tracks.length" class="empty-state"><Music2 :size="32" :stroke-width="1.4" /><h3>{{ library.view === 'history' ? '还没有播放记录' : '歌单中还没有歌曲' }}</h3><p>{{ library.view === 'history' ? '播放过的歌曲会出现在这里。' : '在 QQ 音乐中添加歌曲后刷新。' }}</p></div>
-            <div v-if="library.hasMore" class="load-more"><button class="button secondary" :disabled="library.loadingMore" @click="library.loadMore"><LoaderCircle v-if="library.loadingMore" class="spinning" :size="15" />{{ library.loadingMore ? '正在加载' : '加载更多' }}</button><span v-if="library.view === 'playlist'">已加载 {{ library.tracks.length }} / {{ library.total }} 首</span></div>
+            <div v-if="library.state === 'ready' && !library.tracks.length" class="empty-state"><Music2 :size="32" :stroke-width="1.4" /><h3>歌单中还没有歌曲</h3><p>在 QQ 音乐中添加歌曲后刷新。</p></div>
+            <div v-if="library.hasMore" class="load-more"><button class="button secondary" :disabled="library.loadingMore" @click="library.loadMore"><LoaderCircle v-if="library.loadingMore" class="spinning" :size="15" />{{ library.loadingMore ? '正在加载' : '加载更多' }}</button><span>已加载 {{ library.tracks.length }} / {{ library.total }} 首</span></div>
           </section>
         </div>
       </main>
@@ -328,7 +355,7 @@ onUnmounted(() => {
     <div v-if="notices.length" class="notice-toast" role="alert"><span>{{ notices[0] }}</span><button class="icon-button" aria-label="关闭提示" @click="dismissNotices"><X :size="16" /></button></div>
 
     <dialog ref="loginDialog" class="login-dialog" aria-labelledby="login-title" @cancel.prevent="library.cancelLogin">
-      <button class="icon-button login-close" aria-label="取消扫码登录" @click="library.cancelLogin"><X :size="19" /></button>
+      <button class="icon-button login-close" aria-label="取消登录" @click="library.cancelLogin"><X :size="19" /></button>
       <span class="login-brand"><AudioLines :size="24" :stroke-width="1.8" /></span>
       <h2 id="login-title">登录 QQ 音乐</h2>
       <div class="login-methods" role="group" aria-label="扫码方式"><button v-for="method in ([['qq','QQ'],['wx','微信'],['mobile','QQ 音乐']] as const)" :key="method[0]" :class="{ selected: library.loginKind === method[0] }" :aria-pressed="library.loginKind === method[0]" @click="library.setLoginKind(method[0])">{{ method[1] }}</button></div><p class="login-instruction">打开 <strong>{{ loginApp }}</strong>，扫一扫</p>
@@ -338,7 +365,7 @@ onUnmounted(() => {
         <div v-if="['expired','refused','error'].includes(library.loginStatus)" class="qr-overlay"><RefreshCw :size="26" /><strong>{{ library.loginStatus === 'expired' ? '二维码已过期' : library.loginStatus === 'refused' ? '你已取消授权' : '二维码暂不可用' }}</strong><button class="button primary" @click="library.connect">刷新二维码</button></div>
       </div>
       <div class="qr-status" role="status"><template v-if="library.loginStatus === 'scanned'"><Check :size="15" /><span>已扫码，请在{{ loginApp }}上确认登录</span></template><template v-else-if="library.loginStatus === 'waiting'"><span class="live-dot pulsing"></span><span>等待扫码 · 二维码 3 分钟内有效</span></template><span v-else-if="library.loginStatus === 'error'">{{ library.loginError }}</span><span v-else>扫码后会自动同步你的音乐资料库</span></div>
-      <div class="login-privacy">QQ 官方扫码授权<span>·</span>登录凭据仅存此 Mac</div>
+      <div class="login-privacy">QQ 官方授权<span>·</span>登录凭据仅存本机钥匙串</div>
     </dialog>
 
     <dialog ref="settingsDialog" class="settings-dialog settings-redesign" aria-label="设置">

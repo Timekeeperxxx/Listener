@@ -2,11 +2,11 @@ use crate::{
     auth::Credentials,
     catalog::validate_mid,
     error::{AppError, Result},
-    models::{ArtistRef, CatalogAlbum, SavedCatalog},
-    qq::{image_url, number, text, QqMusic},
+    models::{ArtistRef, CatalogAlbum, Library, SavedCatalog},
+    qq::{image_url, number, text, timestamp, QqMusic},
 };
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const RELATION_MODULE: &str = "music.concern.RelationList";
 const CONCERN_MODULE: &str = "Concern.ConcernSystemServer";
@@ -193,6 +193,63 @@ fn album_param(uin: &str, album_mid: &str) -> Value {
 }
 
 impl QqMusic {
+    pub async fn set_favorite_playlist(
+        &self,
+        auth: &Credentials,
+        id: &str,
+        saved: bool,
+    ) -> Result<Library> {
+        let playlist_id = id
+            .parse::<u64>()
+            .ok()
+            .filter(|id| *id > 0)
+            .ok_or_else(|| AppError::new("INVALID_PLAYLIST", "这张歌单无法收藏。"))?;
+        let uin = auth.encrypt_uin();
+        if uin.is_empty() {
+            return Err(AppError::new(
+                "AUTH_INVALID",
+                "当前登录信息缺少歌单收藏所需的账户标识，请重新扫码登录。",
+            ));
+        }
+        let data = self
+            .rpc(
+                Some(auth),
+                web_comm(auth)?,
+                "music.musicasset.PlaylistFavWrite",
+                if saved {
+                    "FavPlaylist"
+                } else {
+                    "CancelFavPlaylist"
+                },
+                json!({ "uin": uin, "v_playlistId": [playlist_id] }),
+            )
+            .await?;
+        let result = number(&data["result"])
+            .ok_or_else(|| AppError::protocol("favorite.playlist.result"))?;
+        if result != 0
+            || data["v_failedPlaylistId"]
+                .as_array()
+                .is_some_and(|ids| ids.iter().any(|id| number(id) == Some(playlist_id)))
+        {
+            return Err(AppError::new(
+                "CLOUD_WRITE_FAILED",
+                "QQ 音乐拒绝了这次歌单收藏操作。",
+            ));
+        }
+        let library = self.library(auth).await?;
+        let confirmed = library
+            .playlists
+            .iter()
+            .any(|item| item.id == id && item.kind == "collected");
+        if !library.warnings.is_empty() || confirmed != saved {
+            return Err(AppError::new(
+                "CLOUD_VERIFY_FAILED",
+                "QQ 音乐已接收请求，但收藏状态尚未确认，请刷新后查看。",
+            ));
+        }
+        Ok(library)
+    }
+
     async fn favorite_album_page(&self, auth: &Credentials, offset: u64) -> Result<Value> {
         let comm = web_comm(auth)?;
         let mut attempts = Vec::new();
@@ -240,8 +297,9 @@ impl QqMusic {
         }))
     }
 
-    pub async fn favorite_artists(&self, auth: &Credentials) -> Result<Vec<ArtistRef>> {
+    async fn favorite_artists(&self, auth: &Credentials) -> Result<(Vec<ArtistRef>, HashMap<String, u64>)> {
         let mut artists = Vec::new();
+        let mut saved_at = HashMap::new();
         let mut seen = HashSet::new();
         let mut offset = 0u64;
         loop {
@@ -272,6 +330,9 @@ impl QqMusic {
             for raw in &list {
                 let artist = favorite_artist(raw)?;
                 if seen.insert(artist.mid.clone()) {
+                    if let Some(time) = timestamp(raw, &["FollowTime", "followTime", "AddTime", "addTime"]) {
+                        saved_at.insert(artist.mid.clone(), time);
+                    }
                     artists.push(artist);
                 }
             }
@@ -280,11 +341,12 @@ impl QqMusic {
                 break;
             }
         }
-        Ok(artists)
+        Ok((artists, saved_at))
     }
 
-    pub async fn favorite_albums(&self, auth: &Credentials) -> Result<Vec<CatalogAlbum>> {
+    async fn favorite_albums(&self, auth: &Credentials) -> Result<(Vec<CatalogAlbum>, HashMap<String, u64>)> {
         let mut albums = Vec::new();
+        let mut saved_at = HashMap::new();
         let mut seen = HashSet::new();
         let mut offset = 0u64;
         loop {
@@ -307,6 +369,9 @@ impl QqMusic {
             for raw in &list {
                 let album = favorite_album(raw)?;
                 if seen.insert(album.mid.clone()) {
+                    if let Some(time) = timestamp(raw, &["favTime", "fav_time", "addTime", "collectTime"]) {
+                        saved_at.insert(album.mid.clone(), time);
+                    }
                     albums.push(album);
                 }
             }
@@ -315,15 +380,15 @@ impl QqMusic {
                 break;
             }
         }
-        Ok(albums)
+        Ok((albums, saved_at))
     }
 
     pub async fn favorite_catalog(&self, auth: &Credentials) -> Result<SavedCatalog> {
-        let (artists, albums) = tokio::try_join!(
+        let ((artists, artist_saved_at), (albums, album_saved_at)) = tokio::try_join!(
             self.favorite_artists(auth),
             self.favorite_albums(auth)
         )?;
-        Ok(SavedCatalog { artists, albums })
+        Ok(SavedCatalog { artists, albums, artist_saved_at, album_saved_at })
     }
 
     pub async fn set_favorite_artist(

@@ -1,8 +1,10 @@
 pub mod auth;
 pub mod catalog;
 mod cloud;
+#[cfg(desktop)]
 mod companions;
 mod db;
+#[cfg(desktop)]
 mod desktop;
 mod downloads;
 pub mod error;
@@ -10,9 +12,16 @@ mod favorites;
 mod login;
 mod mobile;
 mod mix_audio;
+#[cfg(all(target_os = "ios", feature = "native-ios"))]
+mod native_ios;
+#[cfg(feature = "native-ios")]
+mod native_lyrics;
 pub mod models;
 pub mod qq;
 mod recommendations;
+#[cfg(any(target_os = "ios", test))]
+mod sms;
+#[cfg(desktop)]
 mod updates;
 mod user_library;
 
@@ -25,18 +34,26 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex,
 };
-use tauri::{Emitter, Manager, State, WebviewWindow};
+#[cfg(desktop)]
+use tauri::Emitter;
+use tauri::{Manager, State, WebviewWindow};
 
 struct SessionState {
     credentials: Option<Credentials>,
     generation: u64,
+}
+#[derive(Default)]
+struct LoginState {
+    qr: Option<login::QrSession>,
+    #[cfg(target_os = "ios")]
+    sms: Option<sms::SmsLogin>,
 }
 struct AppState {
     qq: qq::QqMusic,
     db: Database,
     session: Mutex<SessionState>,
     login_generation: AtomicU64,
-    login: Mutex<Option<login::QrSession>>,
+    login: Mutex<LoginState>,
     renewal: tokio::sync::Mutex<()>,
     favorites: tokio::sync::Mutex<()>,
     downloads: Mutex<HashMap<String, Arc<tokio::sync::watch::Sender<bool>>>>,
@@ -48,6 +65,27 @@ struct Snapshot {
 }
 
 impl AppState {
+    fn open(app_dir: &std::path::Path) -> Result<Self> {
+        std::fs::create_dir_all(app_dir)?;
+        Ok(Self {
+            qq: qq::QqMusic::new()?,
+            db: Database::open(&app_dir.join("listener.sqlite3"))?,
+            session: Mutex::new(SessionState { credentials: None, generation: 0 }),
+            login_generation: AtomicU64::new(0),
+            login: Mutex::new(LoginState::default()),
+            renewal: tokio::sync::Mutex::new(()),
+            favorites: tokio::sync::Mutex::new(()),
+            downloads: Mutex::new(HashMap::new()),
+            download_slots: tokio::sync::Semaphore::new(2),
+        })
+    }
+
+    fn login_lock(&self) -> Result<std::sync::MutexGuard<'_, LoginState>> {
+        self.login
+            .lock()
+            .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))
+    }
+
     fn session_lock(&self) -> Result<std::sync::MutexGuard<'_, SessionState>> {
         self.session
             .lock()
@@ -82,6 +120,10 @@ fn main_window(window: &WebviewWindow) -> Result<()> {
 #[tauri::command]
 async fn get_session(window: WebviewWindow, state: State<'_, AppState>) -> Result<Option<Profile>> {
     main_window(&window)?;
+    get_session_core(&state).await
+}
+
+async fn get_session_core(state: &AppState) -> Result<Option<Profile>> {
     let generation = state.session_lock()?.generation;
     let Some(credentials) = auth::load()? else {
         return Ok(None);
@@ -172,6 +214,10 @@ async fn mutate_playlist(
     track: Option<Track>,
 ) -> Result<Library> {
     main_window(&window)?;
+    mutate_playlist_core(&state, action, id, name, track).await
+}
+
+async fn mutate_playlist_core(state: &AppState, action: String, id: Option<String>, name: Option<String>, track: Option<Track>) -> Result<Library> {
     let snapshot = state.snapshot()?;
     let required_id = || {
         id.as_deref()
@@ -200,6 +246,12 @@ async fn mutate_playlist(
                 .delete_playlist(&snapshot.credentials, required_id()?)
                 .await?
         }
+        "collect" | "uncollect" => {
+            state
+                .qq
+                .set_favorite_playlist(&snapshot.credentials, required_id()?, action == "collect")
+                .await?
+        }
         "add" | "remove" => {
             state
                 .qq
@@ -224,25 +276,30 @@ async fn open_login(
     kind: String,
 ) -> Result<login::QrImage> {
     main_window(&window)?;
-    let generation = {
-        let mut target = state
-            .login
-            .lock()
-            .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))?;
-        let generation = state.login_generation.fetch_add(1, Ordering::SeqCst) + 1;
-        *target = None;
-        generation
-    };
+    open_login_core(&state, kind).await
+}
+
+async fn open_login_core(state: &AppState, kind: String) -> Result<login::QrImage> {
+    let generation = begin_login(state)?;
     let (session, image) = login::QrSession::create_for(&kind, &state.qq).await?;
-    let mut target = state
-        .login
-        .lock()
-        .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))?;
+    register_login(state, generation, session)?;
+    Ok(image)
+}
+
+fn begin_login(state: &AppState) -> Result<u64> {
+    let mut target = state.login_lock()?;
+    let generation = state.login_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    *target = LoginState::default();
+    Ok(generation)
+}
+
+fn register_login(state: &AppState, generation: u64, session: login::QrSession) -> Result<()> {
+    let mut target = state.login_lock()?;
     if state.login_generation.load(Ordering::SeqCst) != generation {
         return Err(AppError::new("LOGIN_CANCELLED", "本次登录已取消。"));
     }
-    *target = Some(session);
-    Ok(image)
+    target.qr = Some(session);
+    Ok(())
 }
 
 #[derive(serde::Serialize)]
@@ -263,11 +320,11 @@ async fn poll_login(
     id: String,
 ) -> Result<LoginPoll> {
     main_window(&window)?;
-    let login = state
-        .login
-        .lock()
-        .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))?
-        .clone();
+    poll_login_core(&state, id).await
+}
+
+async fn poll_login_core(state: &AppState, id: String) -> Result<LoginPoll> {
+    let login = state.login_lock()?.qr.clone();
     let Some(login) = login.filter(|login| login.id == id) else {
         return Ok(LoginPoll::Closed);
     };
@@ -280,50 +337,55 @@ async fn poll_login(
         login::QrStatus::Refused => return Ok(LoginPoll::Refused),
         login::QrStatus::Authorized(credentials) => credentials,
     };
-    let profile = state.qq.profile(&credentials).await?;
-    state.db.cache(&credentials.uin, "profile", &profile)?;
-    {
-        let mut login = state
-            .login
-            .lock()
-            .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))?;
-        if state.login_generation.load(Ordering::SeqCst) != login_generation
-            || login.as_ref().map(|qr| qr.id.as_str()) != Some(id.as_str())
-        {
-            return Ok(LoginPoll::Closed);
-        }
-        let mut session = state.session_lock()?;
-        if session.generation != session_generation {
-            return Err(AppError::new("SESSION_CHANGED", "账户已变化，请重新连接。"));
-        }
-        auth::save(&credentials)?;
-        session.credentials = Some(credentials);
-        session.generation += 1;
-        *login = None;
+    match complete_login(state, login_generation, session_generation, Some(&id), credentials).await? {
+        Some(profile) => Ok(LoginPoll::Complete { profile }),
+        None => Ok(LoginPoll::Closed),
     }
-    Ok(LoginPoll::Complete { profile })
+}
+
+async fn complete_login(
+    state: &AppState,
+    login_generation: u64,
+    session_generation: u64,
+    qr_id: Option<&str>,
+    credentials: Credentials,
+) -> Result<Option<Profile>> {
+    let profile = state.qq.profile(&credentials).await?;
+    let mut login = state.login_lock()?;
+    if state.login_generation.load(Ordering::SeqCst) != login_generation
+        || login.qr.as_ref().map(|qr| qr.id.as_str()) != qr_id
+    {
+        return Ok(None);
+    }
+    let mut session = state.session_lock()?;
+    if session.generation != session_generation {
+        return Err(AppError::new("SESSION_CHANGED", "账户已变化，请重新连接。"));
+    }
+    state.db.cache(&credentials.uin, "profile", &profile)?;
+    auth::save(&credentials)?;
+    session.credentials = Some(credentials);
+    session.generation += 1;
+    *login = LoginState::default();
+    Ok(Some(profile))
 }
 
 #[tauri::command]
 async fn cancel_login(window: WebviewWindow, state: State<'_, AppState>) -> Result<()> {
     main_window(&window)?;
-    let mut login = state
-        .login
-        .lock()
-        .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))?;
-    state.login_generation.fetch_add(1, Ordering::SeqCst);
-    *login = None;
+    begin_login(&state)?;
     Ok(())
 }
 
 #[tauri::command]
 async fn logout(window: WebviewWindow, state: State<'_, AppState>) -> Result<()> {
     main_window(&window)?;
+    logout_core(&state).await
+}
+
+async fn logout_core(state: &AppState) -> Result<()> {
+    let mut login = state.login_lock()?;
     state.login_generation.fetch_add(1, Ordering::SeqCst);
-    *state
-        .login
-        .lock()
-        .map_err(|_| AppError::new("SESSION_ERROR", "登录会话异常，请重新启动应用。"))? = None;
+    *login = LoginState::default();
     let mut session = state.session_lock()?;
     auth::delete()?;
     for cancel in state
@@ -423,12 +485,13 @@ async fn get_artist_songs(
     state: State<'_, AppState>,
     mid: String,
     offset: u64,
+    order: ArtistSongOrder,
 ) -> Result<CatalogPage<Track>> {
     main_window(&window)?;
     let snapshot = state.snapshot()?;
     let result = state
         .qq
-        .artist_songs(Some(&snapshot.credentials), &mid, offset)
+        .artist_songs(Some(&snapshot.credentials), &mid, offset, order)
         .await?;
     state.unchanged(&snapshot)?;
     Ok(result)
@@ -523,15 +586,19 @@ async fn get_source(
     track: Track,
 ) -> Result<PlaybackSource> {
     main_window(&window)?;
-    let snapshot = state.snapshot()?;
-    qq::validate_track(&track)?;
     let root = window
         .app_handle()
         .path()
         .app_data_dir()
         .map_err(|e| AppError::new("FILE_ERROR", e.to_string()))?;
+    get_source_core(&state, &root, track).await
+}
+
+async fn get_source_core(state: &AppState, root: &std::path::Path, track: Track) -> Result<PlaybackSource> {
+    let snapshot = state.snapshot()?;
+    qq::validate_track(&track)?;
     if let Some(source) =
-        downloads::local_source(&state, &root, &snapshot.credentials.uin, &track.mid)?
+        downloads::local_source(state, root, &snapshot.credentials.uin, &track.mid)?
     {
         return Ok(source);
     }
@@ -554,6 +621,10 @@ async fn get_lyrics(
     track: Track,
 ) -> Result<RawLyrics> {
     main_window(&window)?;
+    get_lyrics_core(&state, track).await
+}
+
+async fn get_lyrics_core(state: &AppState, track: Track) -> Result<RawLyrics> {
     qq::validate_track(&track)?;
     let snapshot = state.snapshot()?;
     let cache_key = format!("lyrics:{}", track.id);
@@ -638,12 +709,17 @@ fn save_settings(
     settings: Settings,
 ) -> Result<()> {
     main_window(&window)?;
-    let previous = state.db.settings()?;
-    desktop::apply_shortcuts(window.app_handle(), &settings.shortcuts)?;
-    if let Err(error) = state.db.save_settings(&settings) {
-        desktop::apply_shortcuts(window.app_handle(), &previous.shortcuts)?;
-        return Err(error);
+    #[cfg(desktop)]
+    {
+        let previous = state.db.settings()?;
+        desktop::apply_shortcuts(window.app_handle(), &settings.shortcuts)?;
+        if let Err(error) = state.db.save_settings(&settings) {
+            desktop::apply_shortcuts(window.app_handle(), &previous.shortcuts)?;
+            return Err(error);
+        }
     }
+    #[cfg(mobile)]
+    state.db.save_settings(&settings)?;
     if let Some(credentials) = &state.session_lock()?.credentials {
         state.db.prune_cache(
             &credentials.uin,
@@ -694,6 +770,10 @@ async fn get_daily_recommendation(
     refresh: bool,
 ) -> Result<DailyRecommendation> {
     main_window(&window)?;
+    get_daily_recommendation_core(&state, refresh).await
+}
+
+async fn get_daily_recommendation_core(state: &AppState, refresh: bool) -> Result<DailyRecommendation> {
     let snapshot = state.snapshot()?;
     let day = recommendations::current_day()?;
     if !refresh {
@@ -732,6 +812,42 @@ async fn get_recommendation_radio(
 }
 
 #[tauri::command]
+async fn get_recommended_playlists(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<Vec<Playlist>> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let playlists = state.qq.recommended_playlists(&snapshot.credentials).await?;
+    state.unchanged(&snapshot)?;
+    Ok(playlists)
+}
+
+#[tauri::command]
+async fn get_desktop_song_recommendation(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<DesktopSongRecommendation> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let recommendation = state.qq.desktop_song_recommendation(&snapshot.credentials).await?;
+    state.unchanged(&snapshot)?;
+    Ok(recommendation)
+}
+
+#[tauri::command]
+async fn get_featured_charts(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<Vec<Chart>> {
+    main_window(&window)?;
+    let snapshot = state.snapshot()?;
+    let charts = state.qq.featured_charts().await?;
+    state.unchanged(&snapshot)?;
+    Ok(charts)
+}
+
+#[tauri::command]
 fn get_search_history(window: WebviewWindow, state: State<'_, AppState>) -> Result<Vec<String>> {
     main_window(&window)?;
     state.db.search_history(&state.snapshot()?.credentials.uin)
@@ -759,6 +875,10 @@ async fn get_saved_catalog(
     state: State<'_, AppState>,
 ) -> Result<SavedCatalog> {
     main_window(&window)?;
+    get_saved_catalog_core(&state).await
+}
+
+async fn get_saved_catalog_core(state: &AppState) -> Result<SavedCatalog> {
     let _favorites = state.favorites.lock().await;
     let snapshot = state.snapshot()?;
     let catalog = state.qq.favorite_catalog(&snapshot.credentials).await?;
@@ -777,6 +897,10 @@ async fn save_catalog_artist(
     saved: bool,
 ) -> Result<SavedCatalog> {
     main_window(&window)?;
+    save_catalog_artist_core(&state, artist, saved).await
+}
+
+async fn save_catalog_artist_core(state: &AppState, artist: ArtistRef, saved: bool) -> Result<SavedCatalog> {
     let _favorites = state.favorites.lock().await;
     let snapshot = state.snapshot()?;
     state
@@ -805,6 +929,10 @@ async fn save_catalog_album(
     saved: bool,
 ) -> Result<SavedCatalog> {
     main_window(&window)?;
+    save_catalog_album_core(&state, album, saved).await
+}
+
+async fn save_catalog_album_core(state: &AppState, album: CatalogAlbum, saved: bool) -> Result<SavedCatalog> {
     let _favorites = state.favorites.lock().await;
     let snapshot = state.snapshot()?;
     state
@@ -871,33 +999,26 @@ fn clear_lyric_cache(window: WebviewWindow, state: State<'_, AppState>) -> Resul
         .clear_lyric_cache(&state.snapshot()?.credentials.uin)
 }
 
+#[cfg(desktop)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(updates::PendingUpdate::default())
+        .manage(updates::PendingUpdate::default());
+    let builder = builder
         .setup(|app| {
             let app_dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&app_dir)?;
-            app.manage(AppState {
-                qq: qq::QqMusic::new()?,
-                db: Database::open(&app_dir.join("listener.sqlite3"))?,
-                session: Mutex::new(SessionState {
-                    credentials: None,
-                    generation: 0,
-                }),
-                login_generation: AtomicU64::new(0),
-                login: Mutex::new(None),
-                renewal: tokio::sync::Mutex::new(()),
-                favorites: tokio::sync::Mutex::new(()),
-                downloads: Mutex::new(HashMap::new()),
-                download_slots: tokio::sync::Semaphore::new(2),
-            });
+            app.manage(AppState::open(&app_dir)?);
+            #[cfg(desktop)]
             desktop::setup(
                 app.handle(),
                 &app.state::<AppState>().db.settings()?.shortcuts,
             )?;
             Ok(())
-        })
+        });
+    #[cfg(desktop)]
+    let builder = builder
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 for label in ["mini", "desktop-lyrics"] {
@@ -908,7 +1029,8 @@ pub fn run() {
                     }
                 }
             }
-        })
+        });
+    builder
         .invoke_handler(tauri::generate_handler![
             get_session,
             renew_session,
@@ -917,8 +1039,11 @@ pub fn run() {
             downloads::download_track,
             downloads::cancel_download,
             downloads::remove_download,
+            #[cfg(desktop)]
             companions::show_companion,
+            #[cfg(desktop)]
             companions::companion_action,
+            #[cfg(desktop)]
             companions::publish_companions,
             open_login,
             poll_login,
@@ -944,15 +1069,23 @@ pub fn run() {
             save_playback,
             get_settings,
             save_settings,
+            #[cfg(desktop)]
             desktop::get_desktop_status,
+            #[cfg(desktop)]
             desktop::hide_main,
+            #[cfg(desktop)]
             desktop::quit_app,
+            #[cfg(desktop)]
             updates::check_app_update,
+            #[cfg(desktop)]
             updates::install_app_update,
             get_search_tracks,
             get_search_playlists,
             get_daily_recommendation,
             get_recommendation_radio,
+            get_recommended_playlists,
+            get_desktop_song_recommendation,
+            get_featured_charts,
             get_search_history,
             record_search,
             clear_search_history,
@@ -966,10 +1099,11 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("Listener could not start")
-        .run(|app, event| match event {
-            tauri::RunEvent::ExitRequested { api, .. } if !desktop::is_quitting(app) => {
+        .run(|_app, event| match event {
+            #[cfg(desktop)]
+            tauri::RunEvent::ExitRequested { api, .. } if !desktop::is_quitting(_app) => {
                 api.prevent_exit();
-                if let Err(error) = app.emit_to("main", "desktop-action", "quit") {
+                if let Err(error) = _app.emit_to("main", "desktop-action", "quit") {
                     eprintln!("Quit request failed: {error}")
                 }
             }
@@ -978,7 +1112,7 @@ pub fn run() {
                 has_visible_windows: false,
                 ..
             } => {
-                if let Err(error) = desktop::show_main(app) {
+                if let Err(error) = desktop::show_main(_app) {
                     eprintln!("Reopen failed: {error:?}")
                 }
             }

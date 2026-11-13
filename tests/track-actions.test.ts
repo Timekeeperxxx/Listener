@@ -4,7 +4,7 @@ import { createApp, nextTick, reactive, type App } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Download, Library, Track, TrackMenuTarget } from '../src/types'
 const api = vi.hoisted(() => ({ mutatePlaylist: vi.fn(), download: vi.fn(), playlist: vi.fn(), library: vi.fn() }))
-vi.mock('../src/lib/api', () => ({ api, desktop: false, errorMessage: (cause: Error) => cause.message }))
+vi.mock('../src/lib/api', () => ({ api, native: false, errorMessage: (cause: Error) => cause.message }))
 vi.mock('../src/stores/player', () => ({ usePlayerStore: () => player }))
 import TrackActions from '../src/components/TrackActions.vue'
 import { useLibraryStore } from '../src/stores/library'

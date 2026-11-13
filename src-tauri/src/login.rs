@@ -17,6 +17,7 @@ use std::{
 
 const QQ_APP_ID: &str = "716027609";
 const MUSIC_APP_ID: &str = "100497308";
+const LOGIN_JUMP: &str = "https://graph.qq.com/oauth2.0/login_jump";
 const REDIRECT: &str =
     "https://y.qq.com/portal/wx_redirect.html?login_type=1&surl=https://y.qq.com/";
 
@@ -49,7 +50,7 @@ pub enum QrStatus {
 }
 
 impl QrSession {
-    pub async fn create() -> Result<(Self, QrImage)> {
+    async fn request_qq_login(params: &[(&str, &str)]) -> Result<(Self, reqwest::Response)> {
         let jar = Arc::new(Jar::default());
         // A fresh cookie jar per QR attempt prevents two login attempts sharing tickets.
         let client = Client::builder().cookie_provider(jar.clone())
@@ -61,15 +62,11 @@ impl QrSession {
             .header("Referer", "https://xui.ptlogin2.qq.com/")
             .query(&[
                 ("appid", QQ_APP_ID),
-                ("e", "2"),
-                ("l", "M"),
-                ("s", "3"),
-                ("d", "72"),
-                ("v", "4"),
                 ("t", &timestamp()),
                 ("daid", "383"),
                 ("pt_3rd_aid", MUSIC_APP_ID),
             ])
+            .query(params)
             .send()
             .await?
             .error_for_status()?;
@@ -78,25 +75,9 @@ impl QrSession {
             .find(|c| c.name() == "qrsig")
             .map(|c| c.value().to_owned())
             .ok_or_else(|| AppError::protocol("qrsig"))?;
-        let bytes = response.bytes().await?;
-        if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-            return Err(AppError::new(
-                "QR_IMAGE_ERROR",
-                "QQ 暂时未能生成二维码，请点击刷新。",
-            ));
-        }
-        let id = uuid::Uuid::new_v4().to_string();
-        let image = QrImage {
-            id: id.clone(),
-            image: format!(
-                "data:image/png;base64,{}",
-                base64::engine::general_purpose::STANDARD.encode(&bytes)
-            ),
-            expires_in: 180,
-        };
         Ok((
             Self {
-                id,
+                id: uuid::Uuid::new_v4().to_string(),
                 client,
                 jar,
                 qrsig,
@@ -104,8 +85,30 @@ impl QrSession {
                 kind: "qq".into(),
                 mobile: None,
             },
-            image,
+            response,
         ))
+    }
+
+    pub async fn create() -> Result<(Self, QrImage)> {
+        let (session, response) =
+            Self::request_qq_login(&[("e", "2"), ("l", "M"), ("s", "3"), ("d", "72"), ("v", "4")])
+                .await?;
+        let bytes = response.bytes().await?;
+        if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+            return Err(AppError::new(
+                "QR_IMAGE_ERROR",
+                "QQ 暂时未能生成二维码，请点击刷新。",
+            ));
+        }
+        let image = QrImage {
+            id: session.id.clone(),
+            image: format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(&bytes)
+            ),
+            expires_in: 180,
+        };
+        Ok((session, image))
     }
 
     pub async fn create_for(kind: &str, qq: &QqMusic) -> Result<(Self, QrImage)> {
@@ -175,7 +178,7 @@ impl QrSession {
             id: id.clone(),
             image: format!(
                 "data:{mime};base64,{}",
-                base64::engine::general_purpose::STANDARD.encode(bytes)
+                base64::engine::general_purpose::STANDARD.encode(&bytes)
             ),
             expires_in: 180,
         };
@@ -256,7 +259,7 @@ impl QrSession {
             .get("https://ssl.ptlogin2.qq.com/ptqrlogin")
             .header("Referer", "https://xui.ptlogin2.qq.com/")
             .query(&[
-                ("u1", "https://graph.qq.com/oauth2.0/login_jump"),
+                ("u1", LOGIN_JUMP),
                 ("ptqrtoken", &hash33(&self.qrsig, 0).to_string()),
                 ("ptredirect", "0"),
                 ("h", "1"),
@@ -287,7 +290,7 @@ impl QrSession {
             0 => Ok(QrStatus::Authorized(self.authorize(qq, &redirect).await?)),
             _ => Err(AppError::new(
                 "QR_LOGIN_FAILED",
-                format!("QQ 扫码登录未能完成（状态 {code}），请刷新二维码重试。"),
+                format!("QQ 授权未能完成（状态 {code}），请重新发起登录。"),
             )),
         }
     }
@@ -313,7 +316,7 @@ impl QrSession {
                 ("service", "ptqrlogin"),
                 ("nodirect", "0"),
                 ("ptsigx", sigx.as_str()),
-                ("s_url", "https://graph.qq.com/oauth2.0/login_jump"),
+                ("s_url", LOGIN_JUMP),
                 ("ptlang", "2052"),
                 ("ptredirect", "100"),
                 ("aid", QQ_APP_ID),
@@ -381,17 +384,101 @@ impl QrSession {
             .find(|(k, _)| k == "code")
             .map(|(_, v)| v.into_owned())
             .ok_or_else(|| AppError::protocol("OAuth code"))?;
-        let data = qq
-            .rpc(
-                None,
-                json!({"ct":24,"cv":0,"tmeLoginType":2}),
-                "QQConnectLogin.LoginServer",
-                "QQLogin",
-                json!({"code":code}),
-            )
-            .await?;
-        Credentials::from_login(data, 2)
+        exchange_qq_code(qq, &code).await
     }
+}
+
+async fn exchange_qq_code(qq: &QqMusic, code: &str) -> Result<Credentials> {
+    let data = qq
+        .rpc(
+            None,
+            json!({"ct":24,"cv":0,"tmeLoginType":2}),
+            "QQConnectLogin.LoginServer",
+            "QQLogin",
+            json!({"code":code}),
+        )
+        .await?;
+    Credentials::from_login(data, 2)
+}
+
+#[cfg(target_os = "ios")]
+pub fn qq_authorize_url(state: &str) -> url::Url {
+    let mut url =
+        url::Url::parse("https://graph.qq.com/oauth2.0/authorize").expect("constant QQ URL");
+    url.query_pairs_mut().extend_pairs([
+        ("response_type", "code"),
+        ("client_id", MUSIC_APP_ID),
+        ("redirect_uri", REDIRECT),
+        ("scope", "get_user_info,get_app_friends"),
+        ("state", state),
+        ("display", "mobile"),
+    ]);
+    url
+}
+
+#[cfg(any(target_os = "ios", test))]
+pub fn qq_resume_url(callback: &url::Url) -> Option<url::Url> {
+    if callback.scheme() != "listener-qq-login" || callback.host_str() != Some("return") {
+        return None;
+    }
+    let raw = callback.query()?.strip_prefix("url=")?;
+    // QQ appends the browser destination to schemacallback. It can include its own query.
+    let destination = if raw.starts_with("https://") {
+        url::Url::parse(raw).ok()?
+    } else {
+        let (_, decoded) = callback.query_pairs().next()?;
+        url::Url::parse(&decoded).ok()?
+    };
+    if destination.scheme() != "https"
+        || !destination.username().is_empty()
+        || destination.password().is_some()
+        || destination.port().is_some()
+    {
+        return None;
+    }
+    match (destination.host_str()?, destination.path()) {
+        ("ssl.ptlogin2.qq.com" | "ssl.ptlogin2.graph.qq.com", "/jump" | "/check_sig")
+        | ("graph.qq.com", "/oauth2.0/authorize" | "/oauth2.0/login_jump")
+        | ("connect.qq.com", "/")
+        | ("y.qq.com", "/portal/wx_redirect.html") => Some(destination),
+        _ => None,
+    }
+}
+
+#[cfg(any(target_os = "ios", test))]
+fn qq_callback_code(callback: &str, state: &str) -> Result<String> {
+    let invalid = || AppError::new("QQ_AUTH_CALLBACK", "QQ 返回的授权结果无效，请重新登录。");
+    let url = url::Url::parse(callback).map_err(|_| invalid())?;
+    if url.scheme() != "https"
+        || url.host_str() != Some("y.qq.com")
+        || url.path() != "/portal/wx_redirect.html"
+    {
+        return Err(invalid());
+    }
+    let mut codes = url.query_pairs().filter(|(key, _)| key == "code");
+    let code = codes
+        .next()
+        .map(|(_, value)| value)
+        .filter(|code| !code.is_empty())
+        .ok_or_else(invalid)?;
+    let mut states = url.query_pairs().filter(|(key, _)| key == "state");
+    if states.next().as_ref().map(|(_, value)| value.as_ref()) != Some(state)
+        || states.next().is_some()
+        || codes.next().is_some()
+    {
+        return Err(invalid());
+    }
+    Ok(code.into_owned())
+}
+
+#[cfg(target_os = "ios")]
+pub async fn authorize_from_callback(
+    qq: &QqMusic,
+    callback: &str,
+    state: &str,
+) -> Result<Credentials> {
+    let code = qq_callback_code(callback, state)?;
+    exchange_qq_code(qq, &code).await
 }
 
 fn timestamp() -> String {
@@ -430,6 +517,32 @@ fn parse_callback(text: &str) -> Result<(u32, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn quick_login_resumes_only_tencent_urls_without_losing_the_query() {
+        let destination = "https://ssl.ptlogin2.qq.com/jump?x=one&y=two%2Bthree";
+        let callback =
+            url::Url::parse(&format!("listener-qq-login://return?url={destination}")).unwrap();
+        assert_eq!(qq_resume_url(&callback).unwrap().as_str(), destination);
+
+        let mut encoded = url::Url::parse("listener-qq-login://return").unwrap();
+        encoded.query_pairs_mut().append_pair("url", destination);
+        assert_eq!(qq_resume_url(&encoded).unwrap().as_str(), destination);
+
+        let unrelated =
+            url::Url::parse("listener-qq-login://return?url=https://example.com/jump").unwrap();
+        assert!(qq_resume_url(&unrelated).is_none());
+    }
+    #[test]
+    fn quick_login_accepts_only_the_matching_qq_music_callback() {
+        let callback =
+            "https://y.qq.com/portal/wx_redirect.html?login_type=1&code=one-time&state=attempt";
+        assert_eq!(qq_callback_code(callback, "attempt").unwrap(), "one-time");
+        assert!(qq_callback_code(callback, "other-attempt").is_err());
+        assert!(
+            qq_callback_code(&callback.replace("y.qq.com", "other.example"), "attempt").is_err()
+        );
+        assert!(qq_callback_code(&format!("{callback}&code=other"), "attempt").is_err());
+    }
     #[test]
     fn parses_qr_states_without_evaluating_javascript() {
         assert_eq!(

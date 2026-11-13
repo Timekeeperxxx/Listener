@@ -11,7 +11,6 @@ import type { CatalogAlbum, Track } from '../types'
 import { artistNames } from '../lib/catalog'
 
 const player = usePlayerStore()
-const syncedLyrics = ref<InstanceType<typeof SyncedLyrics>>()
 const props = defineProps<{ showTranslation: boolean; showRomanization: boolean }>()
 const emit = defineEmits<{ artist: [name: string, track: Track]; album: [mid: string] }>()
 const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -62,7 +61,6 @@ function lineClick(event: LyricLineMouseEvent) {
   const line = event.line.getLine()
   const offset = player.settings.lyricOffset + player.trackOffset
   player.seek((line.startTime - offset) / 1000)
-  syncedLyrics.value?.syncTo(line.startTime)
 }
 </script>
 
@@ -82,9 +80,9 @@ function lineClick(event: LyricLineMouseEvent) {
         <div class="now-playing-controls"><slot name="controls"></slot></div>
       </div>
       <div class="lyric-pane">
-        <SyncedLyrics v-if="player.lyricLines.length" ref="syncedLyrics" :key="player.current.mid" class="amll-player"
+        <SyncedLyrics v-if="player.lyricLines.length" :key="player.current.mid" class="amll-player"
           :lines="displayedLines" :playing="player.playing" :active="player.visualActive" :font-scale="player.settings.lyrics.fontScale" :line-height="player.settings.lyrics.lineHeight"
-          :reduced-motion="reducedMotion" :read-time="player.readLyricTime" @line-click="lineClick" />
+          :reduced-motion="reducedMotion" :read-time="player.readLyricTime" :seek-revision="player.seekRevision" @line-click="lineClick" />
         <div v-else class="lyric-empty">
           <AudioLines v-if="player.lyricState === 'loading'" :size="32" class="pulse-soft" />
           <Music2 v-else :size="32" :stroke-width="1.2" />

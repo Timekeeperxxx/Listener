@@ -36,6 +36,7 @@ export interface ArtistDetail {
   totalSongs: number
   totalAlbums: number
 }
+export type ArtistSongOrder = 'popular' | 'newest'
 export interface AlbumDetail {
   album: CatalogAlbum
   description: string
@@ -51,9 +52,20 @@ export interface Playlist {
   name: string
   cover: string
   count: number
-  kind: 'liked' | 'created' | 'collected' | 'public'
+  playCount?: number
+  kind: 'liked' | 'created' | 'collected' | 'public' | 'chart'
   dirId?: number
   creator?: string
+}
+export type PlaylistMutation = 'create' | 'rename' | 'delete' | 'add' | 'remove' | 'collect' | 'uncollect'
+export interface DesktopSongRecommendation {
+  title: string
+  tracks: Track[]
+}
+
+export interface Chart {
+  playlist: Playlist
+  preview: { title: string; artist: string }[]
 }
 
 export interface PlaylistPage {
@@ -146,6 +158,6 @@ export interface LoginQr {
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export type HomeNavigation = 'recommend' | 'discover' | 'favorites'
-export type HomeCategory = 'songs' | 'albums' | 'artists' | 'playlists'
+export type HomeCategory = 'songs' | 'albums' | 'artists' | 'playlists' | 'recent'
 
-export interface TrackMenuTarget { track: Track; tracks: Track[]; anchor: HTMLElement }
+export interface TrackMenuTarget { track: Track; tracks: Track[]; anchor: HTMLElement; sequential?: boolean }

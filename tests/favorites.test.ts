@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Library, Playlist, PlaylistPage, Track } from '../src/types'
 const api = vi.hoisted(() => ({ playlist: vi.fn(), mutatePlaylist: vi.fn(), logout: vi.fn(), library: vi.fn() }))
-vi.mock('../src/lib/api', () => ({ api, desktop: true, errorMessage: (cause: { message: string }) => cause.message }))
+vi.mock('../src/lib/api', () => ({ api, native: true, errorMessage: (cause: { message: string }) => cause.message }))
 import { useLibraryStore } from '../src/stores/library'
 const song = (id: number): Track => ({ id, mid: `mid${id}`, mediaMid: '', title: `Song ${id}`, artist: 'Artist', album: '', cover: '', duration: 60, vip: false })
 const liked = (count: number): Playlist => ({ id: 'liked', name: '我喜欢', kind: 'liked', count, cover: '', dirId: 201 })

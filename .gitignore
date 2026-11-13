@@ -20,3 +20,6 @@ harmonyos/
 
 # 原型构建产物，由 prototypes/listener-next/build.mjs 重新生成
 prototypes/listener-next/Listener.html
+
+# iOS build output
+xcuserdata/

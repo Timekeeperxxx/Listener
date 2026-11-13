@@ -1,4 +1,4 @@
-import type { AlbumDetail, ArtistDetail, ArtistRef, CatalogAlbum, CatalogPage, Playlist, PlaylistPage, Track } from '../types'
+import type { AlbumDetail, ArtistDetail, ArtistRef, ArtistSongOrder, CatalogAlbum, CatalogPage, Playlist, PlaylistPage, Track } from '../types'
 
 // This adapter uses public QQ catalog metadata through Vite's local proxy.
 // It sends no account cookies; desktop authentication and audio stay in Rust.
@@ -93,8 +93,8 @@ export const publicCatalogApi = {
     if (ref.mid !== mid) throw new Error('这位歌手暂时无法查看。')
     return { artist: ref, description: d.singer_brief, totalSongs: count(d.total_song), totalAlbums: count(d.total_album) }
   },
-  artistSongs: async (mid: string, offset: number): Promise<CatalogPage<Track>> => {
-    const d = await rpc('musichall.song_list_server', 'GetSingerSongList', { singerMid: mid, begin: offset, num: 50, order: 1 })
+  artistSongs: async (mid: string, offset: number, order: ArtistSongOrder): Promise<CatalogPage<Track>> => {
+    const d = await rpc('musichall.song_list_server', 'GetSingerSongList', { singerMid: mid, begin: offset, num: 50, order: order === 'popular' ? 1 : 0 })
     return page(list(d.songList).map(track), d.totalNum, offset)
   },
   artistAlbums: async (mid: string, offset: number): Promise<CatalogPage<CatalogAlbum>> => {

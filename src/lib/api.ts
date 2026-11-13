@@ -1,14 +1,15 @@
 import { convertFileSrc, invoke, isTauri } from '@tauri-apps/api/core'
-import type { DailyRecommendation } from '../types'
+import type { ArtistSongOrder, Chart, DailyRecommendation, DesktopSongRecommendation, PlaylistMutation } from '../types'
 import type { QqMixPlan } from './qq-automix'
 import type { DesktopStatus, SavedCatalog, StorageUsage, UpdateInfo, AlbumDetail, ArtistDetail, ArtistRef, CatalogAlbum, CatalogPage, AppSettings, Download, Library, LoginPoll, LoginQr, Playlist, PlaylistPage, PlaybackSource, PlaybackState, Profile, RawLyrics, Track } from '../types'
 
-export const desktop = isTauri()
+export const native = isTauri()
+export const desktop = native
 
 let renewal: Promise<void> | null = null
-const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_meta', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists', 'get_daily_recommendation', 'get_recommendation_radio'])
+const renewableReads = new Set(['get_library', 'get_playlist', 'search_tracks', 'get_source', 'get_lyrics', 'get_catalog_artists', 'get_catalog_albums', 'get_artist_detail', 'get_artist_songs', 'get_artist_albums', 'get_album_meta', 'get_album_detail', 'get_catalog_track', 'get_search_tracks', 'get_search_playlists', 'get_daily_recommendation', 'get_recommendation_radio', 'get_recommended_playlists', 'get_desktop_song_recommendation'])
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  if (!desktop) return Promise.reject({ code: 'DESKTOP_REQUIRED', message: '请在 Listener macOS 应用中连接 QQ 音乐。' })
+  if (!native) return Promise.reject({ code: 'DESKTOP_REQUIRED', message: '请在 Listener 应用中连接 QQ 音乐。' })
   try { return await invoke<T>(command, args) }
   catch (cause) {
     if (!renewableReads.has(command) || typeof cause !== 'object' || cause === null || !('code' in cause) || cause.code !== 'AUTH_EXPIRED') throw cause
@@ -28,12 +29,15 @@ export const api = {
   library: () => call<Library>('get_library'),
   dailyRecommendation: (refresh: boolean) => call<DailyRecommendation>('get_daily_recommendation', { refresh }),
   recommendationRadio: () => call<Track[]>('get_recommendation_radio'),
+  recommendedPlaylists: () => call<Playlist[]>('get_recommended_playlists'),
+  desktopSongRecommendation: () => call<DesktopSongRecommendation>('get_desktop_song_recommendation'),
+  featuredCharts: () => call<Chart[]>('get_featured_charts'),
   playlist: (id: string, offset: number) => call<PlaylistPage>('get_playlist', { id, offset }),
   search: (keyword: string, page: number) => call<Track[]>('search_tracks', { keyword, page }),
   catalogArtists: (keyword: string, offset: number, area: number) => call<CatalogPage<ArtistRef>>('get_catalog_artists', { keyword, offset, area }),
   catalogAlbums: (keyword: string, offset: number, area: number) => call<CatalogPage<CatalogAlbum>>('get_catalog_albums', { keyword, offset, area }),
   artistDetail: (mid: string) => call<ArtistDetail>('get_artist_detail', { mid }),
-  artistSongs: (mid: string, offset: number) => call<CatalogPage<Track>>('get_artist_songs', { mid, offset }),
+  artistSongs: (mid: string, offset: number, order: ArtistSongOrder) => call<CatalogPage<Track>>('get_artist_songs', { mid, offset, order }),
   artistAlbums: (mid: string, offset: number) => call<CatalogPage<CatalogAlbum>>('get_artist_albums', { mid, offset }),
   albumMeta: (mid: string) => call<CatalogAlbum>('get_album_meta', { mid }),
   albumDetail: (mid: string) => call<AlbumDetail>('get_album_detail', { mid }),
@@ -63,7 +67,7 @@ export const api = {
   lyrics: (track: Track) => call<RawLyrics>('get_lyrics', { track }),
   history: () => call<Track[]>('get_history'),
   record: (track: Track) => call<void>('record_play', { track }),
-  mutatePlaylist: (action: 'create' | 'rename' | 'delete' | 'add' | 'remove', id: string | null, name: string | null, track: Track | null) => call<Library>('mutate_playlist', { action, id, name, track }),
+  mutatePlaylist: (action: PlaylistMutation, id: string | null, name: string | null, track: Track | null) => call<Library>('mutate_playlist', { action, id, name, track }),
   downloads: () => call<Download[]>('get_downloads'),
   download: (track: Track) => call<Download>('download_track', { track }),
   cancelDownload: (mid: string) => call<void>('cancel_download', { mid }),

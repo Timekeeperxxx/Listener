@@ -155,15 +155,15 @@ defineExpose({ refresh })
               <button v-else-if="library.profile?.offline" class="settings-link" :disabled="reconnecting" @click="reconnect"><LoaderCircle v-if="reconnecting" :size="15" class="spinning" /><RefreshCw v-else :size="15" />重新连接</button>
               <button v-else-if="!library.profile && !demo" class="button primary settings-small-button" @click="emit('connect')"><QrCode :size="15" />连接</button>
             </div>
-            <p class="settings-card-note">登录凭据只保存在此 Mac 的钥匙串；歌单、播放位置与收藏按 QQ 账户隔离。</p>
+            <p class="settings-card-note">登录凭据只保存在本机钥匙串；歌单、播放位置与收藏按 QQ 账户隔离。</p>
           </section>
 
           <div class="settings-group">
             <h3>同步</h3>
             <div class="settings-card">
-              <div class="settings-row"><div class="settings-row-copy"><strong>QQ 音乐账户</strong><p>扫码授权后读取歌单、我喜欢和公开目录。</p></div><span class="settings-value">{{ library.profile ? '已授权' : '未连接' }}</span></div>
+              <div class="settings-row"><div class="settings-row-copy"><strong>QQ 音乐账户</strong><p>授权后读取歌单、我喜欢和公开目录。</p></div><span class="settings-value">{{ library.profile ? '已授权' : '未连接' }}</span></div>
               <div class="settings-row"><div class="settings-row-copy"><strong>歌手与专辑收藏</strong><p>关注歌手和收藏专辑会同步到 QQ 音乐。</p></div><span class="settings-value">自动同步</span></div>
-              <div class="settings-row"><div class="settings-row-copy"><strong>播放位置</strong><p>队列与进度只保存在此 Mac，并在下次打开时恢复。</p></div><span class="settings-value">本机</span></div>
+              <div class="settings-row"><div class="settings-row-copy"><strong>播放位置</strong><p>队列与进度只保存在本机，并在下次打开时恢复。</p></div><span class="settings-value">本机</span></div>
             </div>
           </div>
 
@@ -181,7 +181,7 @@ defineExpose({ refresh })
               <div class="settings-row"><div class="settings-row-copy"><strong>歌词流动背景</strong><p>歌词页随封面颜色变化的柔和动态背景。</p></div><button class="settings-switch" :class="{ on: player.settings.animatedBackground }" role="switch" :aria-checked="player.settings.animatedBackground" aria-label="歌词流动背景" @click="player.updateSettings({ animatedBackground: !player.settings.animatedBackground })"><span></span></button></div>
             </div>
           </div>
-          <p class="settings-note">主题选择保存在当前 Mac，不随 QQ 账户同步。</p>
+          <p class="settings-note">主题选择保存在本机，不随 QQ 账户同步。</p>
         </template>
 
         <template v-else-if="tab === 'playback'">

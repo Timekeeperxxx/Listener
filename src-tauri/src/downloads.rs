@@ -37,6 +37,10 @@ pub fn cancel_download(
     mid: String,
 ) -> Result<()> {
     main_window(&window)?;
+    cancel_download_core(&state, mid)
+}
+
+pub(crate) fn cancel_download_core(state: &AppState, mid: String) -> Result<()> {
     let owner = state.snapshot()?.credentials.uin;
     if let Some(cancel) = state
         .downloads
@@ -55,6 +59,26 @@ pub async fn download_track(
     track: Track,
 ) -> Result<Download> {
     main_window(&window)?;
+    let root = window
+        .app_handle()
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::new("FILE_ERROR", e.to_string()))?;
+    download_track_core(&state, &root, track, |owner, mid, received, total| {
+        window.emit(
+            "download-progress",
+            serde_json::json!({"owner":owner,"mid":mid,"received":received,"total":total}),
+        )?;
+        Ok(())
+    }).await
+}
+
+pub(crate) async fn download_track_core(
+    state: &AppState,
+    root: &Path,
+    track: Track,
+    progress: impl Fn(&str, &str, u64, Option<u64>) -> Result<()> + Send,
+) -> Result<Download> {
     crate::qq::validate_track(&track)?;
     let snapshot = state.snapshot()?;
     let owner = &snapshot.credentials.uin;
@@ -69,13 +93,8 @@ pub async fn download_track(
             "这首歌已下载；更换音质请先移除本地下载。",
         ));
     }
-    let root = window
-        .app_handle()
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::new("FILE_ERROR", e.to_string()))?;
     let token = uuid::Uuid::new_v4().to_string();
-    let part = stored_path(&root, owner, &format!("{token}.part"))?;
+    let part = stored_path(root, owner, &format!("{token}.part"))?;
     let key = format!("{owner}:{}", track.mid);
     let (sender, receiver) = tokio::sync::watch::channel(false);
     let cancel = Arc::new(sender);
@@ -110,7 +129,7 @@ pub async fn download_track(
             "mp3"
         };
         let filename = format!("{token}.{ext}");
-        let target = stored_path(&root, owner, &filename)?;
+        let target = stored_path(root, owner, &filename)?;
         target_path = Some(target.clone());
         tokio::fs::create_dir_all(part.parent().expect("download parent")).await?;
         let mut response = state
@@ -133,10 +152,7 @@ pub async fn download_track(
             file.write_all(&chunk).await?;
             received += chunk.len() as u64;
             if last.elapsed() >= std::time::Duration::from_millis(250) {
-                window.emit(
-                    "download-progress",
-                    serde_json::json!({"owner":owner,"mid":track.mid,"received":received,"total":total}),
-                )?;
+                progress(owner, &track.mid, received, total)?;
                 last = std::time::Instant::now();
             }
         }
@@ -210,6 +226,15 @@ pub async fn remove_download(
     mid: String,
 ) -> Result<()> {
     main_window(&window)?;
+    let root = window
+        .app_handle()
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::new("FILE_ERROR", e.to_string()))?;
+    remove_download_core(&state, &root, mid).await
+}
+
+pub(crate) async fn remove_download_core(state: &AppState, root: &Path, mid: String) -> Result<()> {
     let snapshot = state.snapshot()?;
     let record = state
         .db
@@ -217,12 +242,7 @@ pub async fn remove_download(
         .into_iter()
         .find(|d| d.track.mid == mid)
         .ok_or_else(|| AppError::new("DOWNLOAD_MISSING", "没有找到这首歌的本地下载。"))?;
-    let root = window
-        .app_handle()
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::new("FILE_ERROR", e.to_string()))?;
-    let path = stored_path(&root, &snapshot.credentials.uin, &record.filename)?;
+    let path = stored_path(root, &snapshot.credentials.uin, &record.filename)?;
     if path.try_exists()? {
         tokio::fs::remove_file(path).await?;
     }

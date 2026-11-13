@@ -43,6 +43,17 @@ let playlists: Playlist[] = [
   { id: 'familiar', name: '熟悉的声音', cover: tracks.find(track => track.artist === '王菲')!.cover, count: playlistTracks.get('familiar')!.length, kind: 'collected' },
   { id: 'piano', name: '耳机里的小世界', cover: tracks.find(track => track.album === 'Voicenotes')!.cover, count: playlistTracks.get('piano')!.length, kind: 'created' },
 ]
+const demoRecommendations: Playlist[] = playlists.slice(1).map((playlist, index) => {
+  const id = 'recommended-' + playlist.id
+  playlistTracks.set(id, playlistTracks.get(playlist.id)!)
+  return { ...playlist, id, kind: 'public', playCount: (index + 2) * 32_815 }
+})
+for (const album of data.albums.slice(0, 4)) {
+  const id = 'recommended-album-' + demoRecommendations.length
+  const items = tracks.filter(track => track.album === album.name)
+  playlistTracks.set(id, items)
+  demoRecommendations.push({ id, name: album.name, cover: items[0].cover, count: items.length, kind: 'public' })
+}
 const recent = [chosen, ...data.artists.slice(1).map(artist => tracks.find(track => track.artist === artist.name)!) ]
 const libraryResult = (): Library => ({ playlists: playlists.map(item => ({ ...item })), warnings: [] })
 const unavailable = async () => { throw new Error('网页演示不连接真实 QQ 账户，请在 macOS 应用中使用此功能。') }
@@ -54,6 +65,12 @@ Object.assign(api, {
   albumMeta: async (mid: string) => (await publicCatalogApi.albumDetail(mid)).album,
   dailyRecommendation: async () => ({ day: recommendationDay(), playlist: { id: 'demo-daily', name: '每日30首（演示）', cover: tracks[0]!.cover, kind: 'public', count: Math.min(30, tracks.length) }, tracks: tracks.slice(0, 30) }),
   recommendationRadio: async () => tracks.slice(0, 10),
+  recommendedPlaylists: async () => demoRecommendations,
+  desktopSongRecommendation: async () => ({ title: '音乐盲盒', tracks: Array.from(new Map(tracks.map(track => [track.artist, track])).values()).concat(tracks.slice(0, 4)) }),
+  featuredCharts: async () => playlists.slice(1, 4).map((item, index) => ({
+    playlist: { ...item, kind: 'chart', name: ['飙升榜（演示）', '热歌榜（演示）', '新歌榜（演示）'][index] },
+    preview: playlistTracks.get(item.id)!.slice(0, 3),
+  })),
   savedCatalog: async () => demoSaved,
   saveArtist: async (artist: ArtistRef, saved: boolean) => { demoSaved = { ...demoSaved, artists: saved ? [artist, ...demoSaved.artists.filter(a => a.mid !== artist.mid)] : demoSaved.artists.filter(a => a.mid !== artist.mid) }; return demoSaved },
   saveAlbum: async (album: CatalogAlbum, saved: boolean) => { demoSaved = { ...demoSaved, albums: saved ? [album, ...demoSaved.albums.filter(a => a.mid !== album.mid)] : demoSaved.albums.filter(a => a.mid !== album.mid) }; return demoSaved },
@@ -76,6 +93,11 @@ Object.assign(api, {
   },
   mutatePlaylist: async (action: string, id: string | null, name: string | null, track: Track | null) => {
     if (action === 'create') { const key = `demo-${Date.now()}`; playlists.push({ id: key, name: name!, count: 0, cover: '', kind: 'created' }); playlistTracks.set(key, []) }
+    else if (action === 'collect') {
+      const item = demoRecommendations.find(playlist => playlist.id === id)
+      if (!item) throw new Error('这张演示歌单不存在。')
+      if (!playlists.some(playlist => playlist.id === id)) playlists.push({ ...item, kind: 'collected' })
+    } else if (action === 'uncollect') playlists = playlists.filter(playlist => playlist.id !== id || playlist.kind !== 'collected')
     else {
       const selected = playlists.find(item => item.id === id)
       if (!selected) throw new Error('这张演示歌单不存在。')
@@ -126,7 +148,7 @@ function select(track: Track, items?: Track[], position = 0) {
 player.play = async (track, items, startAt = 0) => { select(track, items, startAt); player.playing = true }
 player.pause = () => { anchorTime = readClock(); player.time = anchorTime; player.playing = false }
 player.toggle = async () => { if (player.playing) player.pause(); else { anchorWall = performance.now(); player.playing = true } }
-player.seek = seconds => { anchorTime = Math.max(0, Math.min(seconds, player.duration)) * 1000; anchorWall = performance.now(); player.time = anchorTime }
+player.seek = seconds => { anchorTime = Math.max(0, Math.min(seconds, player.duration)) * 1000; anchorWall = performance.now(); player.time = anchorTime; player.seekRevision++ }
 player.readLyricTime = () => Math.max(0, Math.round(readClock() + player.settings.lyricOffset))
 player.next = async () => {
   const list = player.queue

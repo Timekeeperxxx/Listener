@@ -37,16 +37,8 @@ impl QqMusic {
         method: &str,
         param: Value,
     ) -> Result<Value> {
-        let mut request = self.client.post(GATEWAY).json(&json!({
-            "comm": comm, "req": { "module": module, "method": method, "param": param }
-        }));
-        if let Some(auth) = auth {
-            request = request.header(header::COOKIE, auth.cookie_header());
-        }
-        let body: Value = request.send().await?.error_for_status()?.json().await?;
-        check_code(&body)?;
-        let block = body.get("req").ok_or_else(|| AppError::protocol("req"))?;
-        check_code(block)?;
+        let block = self.rpc_block(auth, comm, module, method, param).await?;
+        check_code(&block)?;
         let data = block
             .get("data")
             .ok_or_else(|| AppError::protocol("data"))?;
@@ -61,6 +53,27 @@ impl QqMusic {
             ));
         }
         Ok(data.clone())
+    }
+
+    pub(crate) async fn rpc_block(
+        &self,
+        auth: Option<&Credentials>,
+        comm: Value,
+        module: &str,
+        method: &str,
+        param: Value,
+    ) -> Result<Value> {
+        let mut request = self.client.post(GATEWAY).json(&json!({
+            "comm": comm, "req": { "module": module, "method": method, "param": param }
+        }));
+        if let Some(auth) = auth {
+            request = request.header(header::COOKIE, auth.cookie_header());
+        }
+        let mut body: Value = request.send().await?.error_for_status()?.json().await?;
+        check_code(&body)?;
+        body.as_object_mut()
+            .and_then(|object| object.remove("req"))
+            .ok_or_else(|| AppError::protocol("req"))
     }
 
     async fn get(
@@ -204,6 +217,17 @@ impl QqMusic {
         id: &str,
         offset: u64,
     ) -> Result<PlaylistPage> {
+        if offset > 100_000 {
+            return Err(AppError::new("INVALID_PAGE", "歌单页码超出范围。"));
+        }
+        if let Some(id) = id.strip_prefix("chart:") {
+            let id = id
+                .parse::<u32>()
+                .ok()
+                .filter(|id| *id > 0)
+                .ok_or_else(|| AppError::new("INVALID_CHART", "排行榜 ID 无效。"))?;
+            return self.chart_page(u64::from(id), offset, PAGE_SIZE).await;
+        }
         let liked = id == "liked";
         let diss_id: u64 = if liked {
             0
@@ -211,9 +235,6 @@ impl QqMusic {
             id.parse()
                 .map_err(|_| AppError::new("INVALID_PLAYLIST", "歌单 ID 无效。"))?
         };
-        if offset > 100_000 {
-            return Err(AppError::new("INVALID_PAGE", "歌单页码超出范围。"));
-        }
         let data = self
             .rpc(
                 Some(auth),
@@ -231,6 +252,10 @@ impl QqMusic {
             .as_array()
             .ok_or_else(|| AppError::protocol("songlist"))?;
         let tracks = songs.iter().map(map_track).collect::<Result<Vec<_>>>()?;
+        let dates = songs.iter().zip(&tracks).filter_map(|(raw, track)| {
+            let date = playlist_track_date(raw);
+            (date.added_at.is_some() || date.published_on.is_some()).then(|| (track.mid.clone(), date))
+        }).collect();
         let total = [
             "/total_song_num",
             "/songlist_size",
@@ -259,6 +284,7 @@ impl QqMusic {
             total,
             next_offset,
             has_more,
+            dates,
         })
     }
 
@@ -542,10 +568,16 @@ pub(crate) fn map_playlist(v: &Value, kind: &str) -> Result<Playlist> {
             text(v, &["diss_cover", "logo", "picurl", "cover", "imgurl"]).unwrap_or_default(),
         ),
         creator: text(&v["creator"], &["name"]),
+        activity_time: match kind {
+            "created" => timestamp(v, &["createtime", "create_time", "createTime", "ctime"]),
+            "collected" => timestamp(v, &["favtime", "fav_time", "favTime", "collectTime"]),
+            _ => None,
+        },
         count: ["song_cnt", "songnum", "total_song_num", "song_count"]
             .iter()
             .find_map(|k| number(&v[k]))
             .unwrap_or(0),
+        play_count: None,
         kind: if liked { "liked".into() } else { kind.into() },
         dir_id: if liked {
             Some(201)
@@ -555,9 +587,41 @@ pub(crate) fn map_playlist(v: &Value, kind: &str) -> Result<Playlist> {
     })
 }
 
+pub(crate) fn timestamp(raw: &Value, fields: &[&str]) -> Option<u64> {
+    fields.iter().filter_map(|field| number(&raw[*field])).find_map(|value| {
+        let seconds = if value >= 1_000_000_000_000 { value / 1000 } else { value };
+        (seconds >= 100_000_000 && seconds <= 32_503_680_000).then_some(seconds)
+    })
+}
+
+fn playlist_track_date(raw: &Value) -> PlaylistTrackDate {
+    let published_on = text(raw, &["time_public", "publishDate"])
+        .filter(|date| {
+            let bytes = date.as_bytes();
+            bytes.len() == 10 && bytes[4] == b'-' && bytes[7] == b'-'
+                && [0, 1, 2, 3, 5, 6, 8, 9].iter().all(|&i| bytes[i].is_ascii_digit())
+        });
+    PlaylistTrackDate {
+        added_at: timestamp(raw, &["addtime", "add_time", "addTime", "song_add_time"]),
+        published_on,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_addition_time_separate_from_release_date_and_track_duration() {
+        let date = playlist_track_date(&json!({
+            "add_time": 1_700_000_000_000_u64, "time_public": "2010-03-20", "interval": 240
+        }));
+        assert_eq!(date.added_at, Some(1_700_000_000));
+        assert_eq!(date.published_on.as_deref(), Some("2010-03-20"));
+        let missing = playlist_track_date(&json!({"interval": 240, "add_time": 12}));
+        assert!(missing.added_at.is_none());
+        assert!(missing.published_on.is_none());
+    }
     #[test]
     fn upstream_error_is_never_an_empty_success() {
         assert_eq!(

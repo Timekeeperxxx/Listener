@@ -5,7 +5,7 @@ import type { PlaybackSource, PlaybackState, RawLyrics, Track } from '../src/typ
 import type { ParsedLyrics } from '../src/lib/lyrics'
 
 const api = vi.hoisted(() => ({ source: vi.fn(), qqMixPlan: vi.fn(), lyrics: vi.fn(), record: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), playback: vi.fn(), savePlayback: vi.fn(), lyricOffset: vi.fn(), saveLyricOffset: vi.fn() }))
-vi.mock('../src/lib/api', () => ({ api, desktop: true, errorMessage: (e: { message: string }) => e.message }))
+vi.mock('../src/lib/api', () => ({ api, native: true, errorMessage: (e: { message: string }) => e.message }))
 const parseInWorker = vi.hoisted(() => vi.fn())
 vi.mock('../src/lib/lyric-client', () => ({ parseInWorker }))
 
@@ -625,6 +625,21 @@ describe('QQ automatic transitions', () => {
     media.dispatchEvent(new Event('seeked'))
     expect(player.time).toBe(42000)
     expect(player.readLyricTime()).toBe(42000)
+    player.reset()
+  })
+  it('seeks from a restored lyric page before loading the audio source', async () => {
+    const { usePlayerStore } = await import('../src/stores/player')
+    const player = usePlayerStore()
+    api.playback.mockResolvedValue(savedPlayback())
+    await player.restorePlayback('listener')
+
+    player.seek(42)
+    expect(player.seekRevision).toBe(1)
+    expect(player.readLyricTime()).toBe(42000)
+    expect(api.source).not.toHaveBeenCalled()
+    await player.toggle()
+    expect(player.time).toBe(42000)
+    expect(player.seekRevision).toBe(1)
     player.reset()
   })
   it('a seek cancels the fade and keeps the current track position', async () => {

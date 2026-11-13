@@ -1,27 +1,45 @@
 # Listener
 
-轻量的 macOS QQ 音乐播放器。Tauri 2 + Rust + Vue 3，使用系统 WebKit 播放音频、AMLL 渲染逐字歌词。界面参考 YesPlayMusic 的音乐库布局和字体，macOS 26 使用原生 Liquid Glass，较旧系统使用磨砂材质。
+Listener 是一款接入 QQ 音乐的轻量播放器，支持 macOS 和 iPhone。macOS 版使用 Tauri 2、Vue 3 和 AMLL 歌词渲染。iPhone 版使用原生 SwiftUI、系统 Liquid Glass 和 AVPlayer。两端共享负责 QQ 音乐接口和本地资料库的 Rust 核心。
 
-[下载 macOS Apple Silicon 版本](https://github.com/Timekeeperxxx/Listener/releases/latest) · [0.3.0 更新说明](docs/releases/0.3.0.md)
+[下载已发布的 macOS 版](https://github.com/Timekeeperxxx/Listener/releases/latest) · [本轮开发记录](docs/updates/native-iphone-and-lyrics.md) · [构建 iPhone 版](#原生-iphone-项目)
+
+## 界面截图
+
+**桌面布局 · 推荐**
+
+![桌面推荐页，包含每日 30 首、为你推荐、歌单补给站和排行榜](docs/screenshots/desktop-recommendations.jpg)
+
+**桌面布局 · 同步歌词**
+
+![桌面歌词页，左侧为封面和播放控制，右侧为当前歌词和虚化的相邻歌词](docs/screenshots/desktop-lyrics.jpg)
+
+| iPhone · 正在播放 | iPhone · 同步歌词 |
+| :---: | :---: |
+| <img src="docs/screenshots/iphone-player.jpg" width="290" alt="iPhone 正在播放页，封面下有两句歌词和播放控制"> | <img src="docs/screenshots/iphone-lyrics.jpg" width="290" alt="iPhone 同步歌词页，当前句逐字高亮"> |
+
+桌面截图来自网页演示，iPhone 截图来自使用测试数据的模拟器。截图中的推荐和歌词用于展示界面。
 
 ## 功能
 
-- 手机 QQ、微信、QQ 音乐扫码登录，登录凭据保存在 macOS 钥匙串，支持登录续期。
+- macOS 支持扫码连接 QQ 音乐。iPhone 提供 QQ 授权、二维码和手机号登录入口，验证方式由 QQ 决定。登录凭据保存在各自设备的系统钥匙串。
+- 推荐页包含每日 30 首、个性化歌曲、推荐歌单和 QQ 音乐排行榜。最近播放可以从「我的收藏」查看。
 - 读取“我喜欢”、自建及收藏歌单；创建、重命名、删除自己的 QQ 歌单，增删歌曲和红心收藏。
 - 统一搜索歌曲、歌手、专辑及公开歌单，分页读取真实结果，保存最近 20 条搜索。
-- 浏览完整线上歌手和专辑目录，查看头像、封面、简介、歌曲与发行专辑。歌手的“播放全部”和随机播放先读取完整曲目。
+- 浏览线上歌手和专辑目录，查看头像、封面、简介、歌曲与发行专辑。歌手歌曲可按热度或发行时间排序，播放全部和随机播放会先读取完整曲目。
 - 关注歌手和收藏专辑，提供“我的收藏”入口；与 QQ 音乐的关注歌手、收藏专辑同步，本地 SQLite 仅缓存当前账户的同步结果。
 - 队列支持下一首播放、追加、移除、排序、随机及循环。按账户保存队列与播放位置，重新打开后暂停等待续播。
 - 在歌曲结束前 20 秒准备下一首的播放地址和音频缓冲，减少切歌等待；可关闭。
 - 支持 MP3、FLAC、Hi-Res 与下载管理，优先播放已下载的音频。实际权限和音质由 QQ 音乐决定。
-- AMLL 逐字高亮与逐行歌词、译文及音译，歌词页显示专辑名称与封面发行时间徽标，浏览歌词后延时回中。
+- 两端支持逐字与逐行歌词、译文、音译和间奏圆点。手动浏览时歌词变清晰，当前句保留逐字高亮。播放中停止浏览后，等待至少 2.5 秒，随下一句恢复跟随，最迟 5 秒。恢复跟随时同步恢复虚化。
+- 点击虚化的歌词可先展开清晰歌词，iPhone 同时显示进度条。再点清晰的歌词可以跳到该句。iPhone 的封面页还会显示当前句和下一句。
 - 歌词字号、行距、译文、音译偏好持久保存；支持全局及每首歌独立的时间微调。
 - 菜单栏播放控制、可配置全局快捷键、关窗后台播放、媒体键、迷你播放器及桌面歌词。
 - 定时停止、歌词缓存容量限制及清理、本机存储用量、应用内检查更新与签名校验。
 
 ## 开发
 
-需要 macOS 12.3+（当前发布只提供 Apple Silicon）、Node.js 22.12+、Rust 1.90+ 及 Xcode Command Line Tools。
+桌面开发需要 macOS 12.3+、Node.js 22.12+、Rust 1.90+ 和 Xcode Command Line Tools。当前发布的 macOS 安装包适用于 Apple Silicon。
 
 ```sh
 npm ci
@@ -67,6 +85,21 @@ DMG 由 `hdiutil` 创建和验证，避免构建期间调用 Finder。当前应�
 
 自动检查模板见 [docs/ci/check.yml](docs/ci/check.yml)。当前 GitHub OAuth 授权不含 `workflow` 权限，因此原有 Actions 文件保留；将模板启用为工作流需要具备相应权限的 GitHub 授权。
 
+## 原生 iPhone 项目
+
+[ListenerNative.xcodeproj](ios/ListenerNative.xcodeproj) 是独立的 SwiftUI 项目，使用系统 Liquid Glass 标签栏、迷你播放器和 AVPlayer。Xcode 的 **Build Rust Core** 阶段从 `src-tauri` 构建静态库，复用 QQ 音乐接口、系统钥匙串和 SQLite 资料库。QQ 自己提供的授权及安全验证页面仍由系统浏览组件显示。
+
+```sh
+rustup target add aarch64-apple-ios
+npm run ios:build
+```
+
+真机包输出到 `src-tauri/target/aarch64-apple-ios/release/ios-native/Listener_版本_iOS_Native.ipa`。它沿用原 iPhone 版的应用标识，使用同一签名安装时可继续使用原数据。可用 iLoader 签名安装，也可以在 Xcode 的 ListenerNative target 中选择自己的开发团队运行。
+
+构建需要完整 Xcode 和 iOS 26 或更新的 SDK，最低部署版本为 iOS 26.0。连接并解锁 iPhone，在本机 [iLoader](https://iloader.app/) 选择设备和 **Import IPA**，导入安装包后签名安装。
+
+模拟器构建需要 `rustup target add aarch64-apple-ios-sim`，然后运行 `npm run ios:build -- --simulator --debug`。模拟器的 App 和账户数据与真机分开。
+
 ## 操作
 
 | 操作 | 快捷键 |
@@ -84,7 +117,7 @@ DMG 由 `hdiutil` 创建和验证，避免构建期间调用 Finder。当前应�
 
 ## 结构与验证
 
-`src` 包含 Vue 界面、Pinia 状态、歌词 Worker 和独立演示。`src-tauri/src` 包含 QQ 接入、登录、SQLite、下载、桌面能力及更新。设置中的字号与行距作用于 AMLL，歌词读取实时音频时钟；普通界面进度更新限频。预加载创建一个静音待播音频缓冲，迷你窗口和桌面歌词共用主窗口的音频状态。
+`src` 包含 Vue 界面、Pinia 状态、歌词 Worker 和独立演示。`ios` 包含原生 SwiftUI 项目。`src-tauri/src` 包含两端共享的 QQ 音乐接入、登录、SQLite 和下载，以及 macOS 的桌面能力和更新。歌词读取实时音频时钟，迷你窗口和桌面歌词共用主窗口的音频状态。
 
 ```sh
 npm test

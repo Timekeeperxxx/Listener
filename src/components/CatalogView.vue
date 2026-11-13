@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ChevronRight, Disc3, Heart, LoaderCircle, Play, Search, Shuffle, Users, X } from '@lucide/vue'
 import { errorMessage } from '../lib/api'
 import { useCatalogStore } from '../stores/catalog'
 import { useSavedCatalogStore } from '../stores/saved-catalog'
-import type { Track, TrackMenuTarget } from '../types'
+import type { ArtistSongOrder, Track, TrackMenuTarget } from '../types'
 import CoverArt from './CoverArt.vue'
 import TrackList from './TrackList.vue'
 import AlbumGrid from './AlbumGrid.vue'
@@ -35,6 +35,8 @@ const preparingArtist = ref(false)
 const playbackError = ref('')
 const filter = ref('')
 const artistTab = ref<'overview' | 'songs' | 'albums' | 'about'>('overview')
+const artistSongOrder = ref<ArtistSongOrder>('popular')
+let artistPlaybackRequest = 0
 const artist = computed(() => catalog.artist)
 const album = computed(() => catalog.album)
 const savedArtists = computed(() => saved.items.artists.filter(a => a.name.toLowerCase().includes(filter.value.trim().toLowerCase())))
@@ -42,13 +44,18 @@ const savedAlbums = computed(() => saved.items.albums.filter(a => `${a.name} ${a
 const shownArtists = computed(() => scope.value === 'saved' ? savedArtists.value : catalog.artists.items)
 const shownAlbums = computed(() => scope.value === 'saved' ? savedAlbums.value : catalog.albums.items)
 const directory = computed(() => scope.value === 'saved' ? { items: props.view === 'artists' ? savedArtists.value : savedAlbums.value, state: saved.state, error: saved.error, hasMore: false, total: props.view === 'artists' ? savedArtists.value.length : savedAlbums.value.length } : props.view === 'artists' ? catalog.artists : catalog.albums)
-const artistTracks = computed(() => artistTab.value === 'overview' ? catalog.songs.items.slice(0, 5) : catalog.songs.items)
+const orderedSongs = computed(() => artistSongOrder.value === 'popular' ? catalog.songs : catalog.newestSongs)
+const artistTracks = computed(() => artistTab.value === 'overview' ? orderedSongs.value.items.slice(0, 5) : orderedSongs.value.items)
 const albums = computed(() => artistTab.value === 'overview' ? catalog.discography.items.slice(0, 5) : catalog.discography.items)
 const albumMinutes = computed(() => album.value ? Math.round(album.value.tracks.reduce((sum, track) => sum + track.duration, 0) / 60) : 0)
 const artistAreas = [{ id: -100, name: '全部地区' }, { id: 200, name: '内地' }, { id: 2, name: '港台' }, { id: 5, name: '欧美' }, { id: 4, name: '日本' }, { id: 3, name: '韩国' }, { id: 6, name: '其他' }]
 const albumAreas = [{ id: 1, name: '内地' }, { id: 2, name: '港台' }, { id: 3, name: '欧美' }, { id: 4, name: '韩国' }, { id: 5, name: '日本' }, { id: 6, name: '其他' }]
 watch(() => [props.view, props.artistMid, props.albumId], () => {
+  artistPlaybackRequest++
+  preparingArtist.value = false
+  playbackError.value = ''
   artistTab.value = 'overview'
+  artistSongOrder.value = 'popular'
   if (props.view === 'artists') {
     filter.value = catalog.artistQuery
     if (catalog.artists.state === 'idle') void catalog.loadArtists()
@@ -58,16 +65,24 @@ watch(() => [props.view, props.artistMid, props.albumId], () => {
   } else if (props.view === 'artist') void catalog.loadArtist(props.artistMid)
   else void catalog.loadAlbum(props.albumId)
 }, { immediate: true })
+watch(artistSongOrder, order => {
+  playbackError.value = ''
+  if (orderedSongs.value.state === 'idle') void catalog.loadArtistSongs(order)
+})
+onBeforeUnmount(() => { artistPlaybackRequest++ })
 async function playArtist(shuffle = false) {
-  const mid = props.artistMid
+  const request = ++artistPlaybackRequest
   preparingArtist.value = true; playbackError.value = ''
   try {
-    const tracks = await catalog.completeArtistSongs()
-    if (props.view !== 'artist' || props.artistMid !== mid || !tracks.length) return
+    const tracks = await catalog.completeArtistSongs(artistSongOrder.value)
+    if (request !== artistPlaybackRequest || !tracks.length) return
     if (shuffle) emit('shuffle', tracks)
     else emit('play', tracks[0]!, tracks)
-  } catch (cause) { playbackError.value = errorMessage(cause) }
-  finally { preparingArtist.value = false }
+  } catch (cause) {
+    if (request === artistPlaybackRequest) playbackError.value = errorMessage(cause)
+  } finally {
+    if (request === artistPlaybackRequest) preparingArtist.value = false
+  }
 }
 function search() {
   if (scope.value === 'saved') return
@@ -97,13 +112,73 @@ function changeArea(event: Event) {
     </template>
 
     <template v-else-if="view === 'artist' && artist && catalog.artistState === 'ready'">
-      <nav class="catalog-breadcrumb" aria-label="当前位置"><button @click="emit('navigate', 'artists')">歌手</button><ChevronRight :size="13" /><span>{{ artist.artist.name }}</span></nav>
-      <div class="artist-hero"><CoverArt :src="artist.artist.image" :alt="artist.artist.name" class="artist-portrait" /><div class="artist-hero-copy"><span class="content-kind">歌手</span><h1>{{ artist.artist.name }}</h1><p class="artist-subtitle">{{ catalog.songs.total }} 首歌曲 · {{ catalog.discography.total }} 张专辑</p><div class="catalog-play-actions"><button class="button primary" :disabled="!catalog.songs.items.length || preparingArtist" @click="playArtist()"><LoaderCircle v-if="preparingArtist" :size="15" class="spinning" /><Play v-else :size="15" fill="currentColor" />{{ preparingArtist ? `${catalog.songs.items.length}/${catalog.songs.total}` : '播放' }}</button><button class="button secondary" :disabled="!catalog.songs.items.length || preparingArtist" @click="playArtist(true)"><Shuffle :size="16" />随机播放</button><button class="button secondary catalog-save" :class="{ selected: saved.hasArtist(artist.artist.mid) }" :disabled="saved.state !== 'ready' || !!saved.busy" :aria-pressed="saved.hasArtist(artist.artist.mid)" @click="saved.toggleArtist(artist.artist)"><Heart :size="16" :fill="saved.hasArtist(artist.artist.mid) ? 'currentColor' : 'none'" />{{ saved.hasArtist(artist.artist.mid) ? '已关注' : '关注歌手' }}</button></div></div></div>
-      <p v-if="playbackError" class="inline-error" role="alert">{{ playbackError }}</p>
-      <nav class="artist-tabs" aria-label="歌手内容"><button :class="{ selected: artistTab === 'overview' }" @click="artistTab = 'overview'">概览</button><button :class="{ selected: artistTab === 'songs' }" @click="artistTab = 'songs'">歌曲 <span>{{ catalog.songs.total }}</span></button><button :class="{ selected: artistTab === 'albums' }" @click="artistTab = 'albums'">专辑 <span>{{ catalog.discography.total }}</span></button><button :class="{ selected: artistTab === 'about' }" @click="artistTab = 'about'">简介</button></nav>
-      <section v-if="artistTab === 'overview' || artistTab === 'songs'" class="catalog-song-section"><div class="section-heading"><h2>{{ artistTab === 'overview' ? '热门歌曲' : '全部歌曲' }}</h2><button v-if="artistTab === 'overview'" class="text-button" @click="artistTab = 'songs'">查看全部<ChevronRight :size="14" /></button></div><TrackList :tracks="artistTracks" :current-mid="currentMid" :playing="playing" @play="track => emit('play', track, catalog.songs.items)" @artist="(name, track) => emit('artist', name, track)" @album="track => emit('album', track)" @play-next="track => emit('playNext', track)" @enqueue="track => emit('enqueue', track)" @actions="target => emit('actions', { ...target, tracks: catalog.songs.items })" /><CatalogPager v-if="artistTab === 'songs'" :state="catalog.songs.state" :error="catalog.songs.error" :has-more="catalog.songs.hasMore" :loaded="catalog.songs.items.length" :total="catalog.songs.total" @load="catalog.loadArtistSongs" /></section>
-      <section v-if="artistTab === 'overview' || artistTab === 'albums'" class="catalog-discography"><div class="section-heading"><h2>全部专辑</h2><button v-if="artistTab === 'overview'" class="text-button" @click="artistTab = 'albums'">查看全部<ChevronRight :size="14" /></button></div><AlbumGrid :albums="albums" @album="mid => emit('navigate', 'album', mid)" @artist="mid => emit('navigate', 'artist', mid)" /><CatalogPager v-if="artistTab === 'albums'" :state="catalog.discography.state" :error="catalog.discography.error" :has-more="catalog.discography.hasMore" :loaded="catalog.discography.items.length" :total="catalog.discography.total" @load="catalog.loadArtistAlbums" /></section>
-      <section v-if="artistTab === 'overview' || artistTab === 'about'" class="artist-about"><div class="section-heading"><h2>关于 {{ artist.artist.name }}</h2><button v-if="artistTab === 'overview' && artist.description" class="text-button" @click="artistTab = 'about'">展开<ChevronRight :size="14" /></button></div><p :class="{ 'description-preview': artistTab === 'overview' }">{{ artist.description || 'QQ 音乐暂未提供歌手介绍。' }}</p></section>
+      <nav class="catalog-breadcrumb artist-breadcrumb" aria-label="当前位置"><button @click="emit('navigate', 'artists')">歌手</button><ChevronRight :size="13" /><span>{{ artist.artist.name }}</span></nav>
+      <nav class="artist-tabs" aria-label="歌手内容">
+        <button :class="{ selected: artistTab === 'overview' }" :aria-pressed="artistTab === 'overview'" @click="artistTab = 'overview'">概览</button>
+        <button :class="{ selected: artistTab === 'songs' }" :aria-pressed="artistTab === 'songs'" @click="artistTab = 'songs'">歌曲 <span>{{ catalog.songs.total }}</span></button>
+        <button :class="{ selected: artistTab === 'albums' }" :aria-pressed="artistTab === 'albums'" @click="artistTab = 'albums'">专辑 <span>{{ catalog.discography.total }}</span></button>
+        <button :class="{ selected: artistTab === 'about' }" :aria-pressed="artistTab === 'about'" @click="artistTab = 'about'">简介</button>
+      </nav>
+
+      <div class="artist-detail" :class="{ 'artist-overview': artistTab === 'overview' }">
+        <header class="artist-hero" aria-labelledby="artist-name">
+          <div class="artist-portrait-frame">
+            <CoverArt :src="artist.artist.image" :alt="artist.artist.name" class="artist-portrait" />
+            <div class="artist-portrait-caption">
+              <h1 id="artist-name">{{ artist.artist.name }}</h1>
+              <p class="artist-subtitle">{{ catalog.songs.total }} 首歌曲 · {{ catalog.discography.total }} 张专辑</p>
+            </div>
+          </div>
+          <div class="catalog-play-actions">
+            <button class="button primary" :disabled="!orderedSongs.items.length || orderedSongs.state === 'loading' || preparingArtist" @click="playArtist()">
+              <LoaderCircle v-if="preparingArtist" :size="15" class="spinning" />
+              <Play v-else :size="15" fill="currentColor" />{{ preparingArtist ? `${orderedSongs.items.length}/${orderedSongs.total}` : '播放' }}
+            </button>
+            <button class="button secondary" :disabled="!orderedSongs.items.length || orderedSongs.state === 'loading' || preparingArtist" @click="playArtist(true)"><Shuffle :size="16" />随机播放</button>
+            <button class="button secondary catalog-save" :class="{ selected: saved.hasArtist(artist.artist.mid) }"
+              :disabled="saved.state !== 'ready' || !!saved.busy" :aria-pressed="saved.hasArtist(artist.artist.mid)" @click="saved.toggleArtist(artist.artist)">
+              <Heart :size="16" :fill="saved.hasArtist(artist.artist.mid) ? 'currentColor' : 'none'" />
+              {{ saved.hasArtist(artist.artist.mid) ? '已关注' : '关注歌手' }}
+            </button>
+          </div>
+          <p v-if="playbackError" class="inline-error artist-playback-error" role="alert">{{ playbackError }}</p>
+        </header>
+
+        <section v-if="artistTab === 'overview' || artistTab === 'songs'" class="catalog-song-section" aria-labelledby="artist-songs-heading">
+          <div class="section-heading">
+            <h2 id="artist-songs-heading">{{ artistTab === 'songs' ? '全部歌曲' : artistSongOrder === 'popular' ? '热门歌曲' : '最新歌曲' }}</h2>
+            <div class="artist-song-tools">
+              <select v-if="catalog.songs.total" v-model="artistSongOrder" aria-label="歌手歌曲排序" :disabled="preparingArtist">
+                <option value="popular">按热度</option>
+                <option value="newest">按发行时间</option>
+              </select>
+              <button v-if="artistTab === 'overview' && artistTracks.length" class="text-button" aria-label="查看全部歌曲" @click="artistTab = 'songs'">查看全部<ChevronRight :size="14" /></button>
+            </div>
+          </div>
+          <TrackList v-if="artistTracks.length" :tracks="artistTracks" :current-mid="currentMid" :playing="playing" :compact="artistTab === 'overview'" :cover-playback="artistTab === 'overview'"
+            @play="track => emit('play', track, orderedSongs.items)" @artist="(name, track) => emit('artist', name, track)" @album="track => emit('album', track)"
+            @play-next="track => emit('playNext', track)" @enqueue="track => emit('enqueue', track)" @actions="target => emit('actions', { ...target, tracks: orderedSongs.items, sequential: true })" />
+          <p v-else-if="orderedSongs.state === 'ready'" class="muted">QQ 音乐暂未提供歌曲。</p>
+          <CatalogPager v-if="artistTab === 'songs' || orderedSongs.state === 'error' || (orderedSongs.state === 'loading' && !orderedSongs.items.length)"
+            :state="orderedSongs.state" :error="orderedSongs.error" :has-more="orderedSongs.hasMore" :loaded="orderedSongs.items.length" :total="orderedSongs.total" @load="catalog.loadArtistSongs(artistSongOrder)" />
+        </section>
+
+        <section v-if="artistTab === 'overview' || artistTab === 'about'" class="artist-about" aria-labelledby="artist-about-heading">
+          <div class="section-heading"><h2 id="artist-about-heading">{{ artistTab === 'overview' ? '简介' : `关于 ${artist.artist.name}` }}</h2></div>
+          <p :class="{ 'description-preview': artistTab === 'overview' }">{{ artist.description || 'QQ 音乐暂未提供歌手介绍。' }}</p>
+          <button v-if="artistTab === 'overview' && artist.description" class="text-button" @click="artistTab = 'about'">完整简介<ChevronRight :size="14" /></button>
+        </section>
+
+        <section v-if="artistTab === 'overview' || artistTab === 'albums'" class="catalog-discography" aria-labelledby="artist-albums-heading">
+          <div class="section-heading">
+            <h2 id="artist-albums-heading">{{ artistTab === 'overview' ? '专辑' : '全部专辑' }}</h2>
+            <button v-if="artistTab === 'overview' && albums.length" class="text-button" aria-label="查看全部专辑" @click="artistTab = 'albums'">查看全部<ChevronRight :size="14" /></button>
+          </div>
+          <AlbumGrid v-if="albums.length" :albums="albums" @album="mid => emit('navigate', 'album', mid)" @artist="mid => emit('navigate', 'artist', mid)" />
+          <p v-else-if="catalog.discography.state === 'ready'" class="muted">QQ 音乐暂未提供专辑。</p>
+          <CatalogPager v-if="artistTab === 'albums'" :state="catalog.discography.state" :error="catalog.discography.error" :has-more="catalog.discography.hasMore" :loaded="catalog.discography.items.length" :total="catalog.discography.total" @load="catalog.loadArtistAlbums" />
+        </section>
+      </div>
     </template>
 
     <template v-else-if="view === 'album' && album && catalog.albumState === 'ready'">

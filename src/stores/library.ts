@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
-import { api, desktop, errorMessage } from '../lib/api'
-import type { LoadState, LoginQr, Playlist, Profile, Track } from '../types'
+import { api, native, errorMessage } from '../lib/api'
+import type { LoadState, LoginQr, Playlist, PlaylistMutation, Profile, Track } from '../types'
+
+type LoginKind = 'qq' | 'wx' | 'mobile'
 
 export const useLibraryStore = defineStore('library', () => {
   const profile = shallowRef<Profile | null>(null)
@@ -11,7 +13,7 @@ export const useLibraryStore = defineStore('library', () => {
   const recentState = ref<LoadState>('idle')
   const recentError = ref('')
   const selected = shallowRef<Playlist | null>(null)
-  const view = ref<'library' | 'playlist' | 'history' | 'search' | 'downloads' | 'artists' | 'albums' | 'artist' | 'album'>('library')
+  const view = ref<'library' | 'playlist' | 'search' | 'downloads' | 'artists' | 'albums' | 'artist' | 'album'>('library')
   const artistMid = ref('')
   const albumId = ref('')
   const catalogTrail: { view: typeof view.value; artist: string; album: string }[] = []
@@ -32,9 +34,10 @@ export const useLibraryStore = defineStore('library', () => {
     artistMid.value = previous ? previous.artist : ''
     albumId.value = previous ? previous.album : ''
   }
-  const loginKind = ref<'qq' | 'wx' | 'mobile'>('qq')
+  const loginKind = ref<LoginKind>('qq')
   const mutationBusy = ref(false)
   const mutationError = ref('')
+  const playlistFavoriteError = ref('')
   const likedMids = shallowRef<Set<string>>(new Set())
   const likedTracks = shallowRef<Track[]>([])
   const likedState = ref<LoadState>('idle')
@@ -42,7 +45,7 @@ export const useLibraryStore = defineStore('library', () => {
   const favoriteError = ref('')
   const state = ref<LoadState>('idle')
   const libraryState = ref<LoadState>('idle')
-  const sessionLoading = ref(desktop)
+  const sessionLoading = ref(native)
   const error = ref('')
   const libraryError = ref('')
   const warnings = ref<string[]>([])
@@ -59,13 +62,15 @@ export const useLibraryStore = defineStore('library', () => {
   const searchPage = ref(1)
   let navigation = 0
   let accountGeneration = 0
+  let libraryRequest = 0
+  let recentRequest = 0
   let loginAttempt = 0
   let loginTimer: ReturnType<typeof setTimeout> | undefined
   let likedRequest: Promise<void> | null = null
   let likedVersion = 0
 
   async function initialize() {
-    if (!desktop) return
+    if (!native) return
     try {
       profile.value = await api.session()
       if (profile.value?.offline) showDownloads()
@@ -75,18 +80,18 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function refresh() {
-    const generation = accountGeneration
+    const request = ++libraryRequest
     libraryState.value = 'loading'
     libraryError.value = ''
     try {
       const result = await api.library()
-      if (generation !== accountGeneration) return
+      if (request !== libraryRequest) return
       playlists.value = result.playlists
       warnings.value = result.warnings
       libraryState.value = 'ready'
       void loadLiked(true)
     } catch (cause) {
-      if (generation !== accountGeneration) return
+      if (request !== libraryRequest) return
       libraryError.value = errorMessage(cause)
       libraryState.value = 'error'
     }
@@ -94,7 +99,9 @@ export const useLibraryStore = defineStore('library', () => {
 
   function clearAccount() {
     accountGeneration++
+    libraryRequest++
     navigation++
+    recentRequest++
     playlists.value = []
     tracks.value = []
     artistMid.value = ''
@@ -120,7 +127,17 @@ export const useLibraryStore = defineStore('library', () => {
     favoriteError.value = ''
     mutationBusy.value = false
     mutationError.value = ''
+    playlistFavoriteError.value = ''
     view.value = 'library'
+  }
+
+  async function finishLogin(account: Profile) {
+    clearAccount()
+    profile.value = account
+    loginWaiting.value = false
+    loginOpen.value = false
+    loginQr.value = null
+    await refresh()
   }
 
   async function connect() {
@@ -132,21 +149,16 @@ export const useLibraryStore = defineStore('library', () => {
     loginQr.value = null
     loginWaiting.value = true
     try {
-      const qr = await api.openLogin(loginKind.value)
+      const request = await api.openLogin(loginKind.value)
       if (attempt !== loginAttempt) return
-      loginQr.value = qr
+      loginQr.value = request
       loginStatus.value = 'waiting'
       const poll = async () => {
         try {
-          const result = await api.pollLogin(qr.id)
+          const result = await api.pollLogin(request.id)
           if (attempt !== loginAttempt) return
           if (result.status === 'complete') {
-            clearAccount()
-            profile.value = result.profile
-            loginWaiting.value = false
-            loginOpen.value = false
-            loginQr.value = null
-            await refresh()
+            await finishLogin(result.profile)
           } else if (result.status === 'closed') {
             loginWaiting.value = false
             loginOpen.value = false
@@ -179,6 +191,7 @@ export const useLibraryStore = defineStore('library', () => {
     loginWaiting.value = false
     loginOpen.value = false
     loginQr.value = null
+    loginKind.value = 'qq'
     try { await api.cancelLogin() } catch (cause) { loginError.value = errorMessage(cause) }
   }
 
@@ -186,6 +199,7 @@ export const useLibraryStore = defineStore('library', () => {
     loginAttempt++
     clearTimeout(loginTimer)
     await api.logout()
+    loginKind.value = 'qq'
     clearAccount()
     profile.value = null
     loginError.value = ''
@@ -196,7 +210,7 @@ export const useLibraryStore = defineStore('library', () => {
 
   function showLibrary() { navigation++; catalogTrail.length = 0; view.value = 'library'; error.value = '' }
   function showDownloads() { navigation++; view.value = 'downloads'; error.value = '' }
-  function setLoginKind(kind: 'qq' | 'wx' | 'mobile') { loginKind.value = kind; if (loginOpen.value) void connect() }
+  function setLoginKind(kind: LoginKind) { loginKind.value = kind; if (loginOpen.value) void connect() }
 
   function loadLiked(force = false): Promise<void> {
     if (likedRequest) return likedRequest
@@ -245,7 +259,19 @@ export const useLibraryStore = defineStore('library', () => {
     } finally { if (generation === accountGeneration) likingMid.value = null }
   }
 
-  async function mutate(action: 'create' | 'rename' | 'delete' | 'add' | 'remove', id: string | null, name: string | null, track: Track | null): Promise<boolean> {
+  function hasPlaylistFavorite(id: string) {
+    return playlists.value.some(item => item.id === id && item.kind === 'collected')
+  }
+
+  async function togglePlaylistFavorite(playlist: Playlist) {
+    if (mutationBusy.value || !profile.value || profile.value.offline || libraryState.value !== 'ready' || warnings.value.length) return
+    const generation = accountGeneration
+    playlistFavoriteError.value = ''
+    const success = await mutate(hasPlaylistFavorite(playlist.id) ? 'uncollect' : 'collect', playlist.id, null, null)
+    if (!success && generation === accountGeneration) playlistFavoriteError.value = mutationError.value
+  }
+
+  async function mutate(action: PlaylistMutation, id: string | null, name: string | null, track: Track | null): Promise<boolean> {
     if (mutationBusy.value) return false
     const generation = accountGeneration
     const request = navigation
@@ -254,8 +280,12 @@ export const useLibraryStore = defineStore('library', () => {
     try {
       const result = await api.mutatePlaylist(action, id, name, track)
       if (generation !== accountGeneration) return false
+      libraryRequest++
       playlists.value = result.playlists
       warnings.value = result.warnings
+      libraryState.value = 'ready'
+      libraryError.value = ''
+      if (action === 'collect' || action === 'uncollect') return true
       if (id === 'liked' && track) {
         likedVersion++
         const mids = new Set(likedMids.value)
@@ -291,16 +321,16 @@ export const useLibraryStore = defineStore('library', () => {
   }
 
   async function loadRecent() {
-    const generation = accountGeneration
+    const request = ++recentRequest
     recentState.value = 'loading'
     recentError.value = ''
     try {
       const result = await api.history()
-      if (generation !== accountGeneration) return
+      if (request !== recentRequest) return
       recentTracks.value = result
       recentState.value = 'ready'
     } catch (cause) {
-      if (generation !== accountGeneration) return
+      if (request !== recentRequest) return
       recentError.value = errorMessage(cause)
       recentState.value = 'error'
     }
@@ -379,33 +409,10 @@ export const useLibraryStore = defineStore('library', () => {
     error.value = ''
   }
 
-  async function history() {
-    const request = ++navigation
-    view.value = 'history'
-    state.value = 'loading'
-    tracks.value = []
-    error.value = ''
-    hasMore.value = false
-    loadingMore.value = false
-    try {
-      const result = await api.history()
-      if (request !== navigation) return
-      tracks.value = result
-      recentTracks.value = result
-      recentState.value = 'ready'
-      recentError.value = ''
-      total.value = result.length
-      state.value = 'ready'
-    } catch (cause) {
-      if (request !== navigation) return
-      error.value = errorMessage(cause)
-      state.value = 'error'
-    }
-  }
-
   return { profile, playlists, tracks, recentTracks, recentState, recentError, selected, view, state, libraryState, sessionLoading, error,
     libraryError, warnings, loginError, loginWaiting, loginOpen, loginQr, loginStatus, total, hasMore, loadingMore, query,
     loginKind, setLoginKind, mutationBusy, mutationError, likedMids, likedTracks, likedState, likingMid, favoriteError, loadLiked, toggleLike, mutate,
+    playlistFavoriteError, hasPlaylistFavorite, togglePlaylistFavorite,
     artistMid, albumId, showCatalog, backCatalog,
-    initialize, refresh, connect, cancelLogin, logout, showLibrary, showDownloads, loadRecent, openPlaylist, loadMore, completePlaylist, search, history }
+    initialize, refresh, connect, cancelLogin, logout, showLibrary, showDownloads, loadRecent, openPlaylist, loadMore, completePlaylist, search }
 })

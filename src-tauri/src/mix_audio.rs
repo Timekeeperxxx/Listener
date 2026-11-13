@@ -81,7 +81,7 @@ impl QqMixCues {
 }
 
 impl QqMusic {
-    async fn mix_plan(&self, from: &str, to: &str) -> Result<QqMixPlan> {
+    pub(crate) async fn mix_plan(&self, from: &str, to: &str) -> Result<QqMixPlan> {
         let data = self.rpc(
             None,
             json!({"ct":24,"cv":4747474,"uin":0,"format":"json","platform":"yqq.json","needNewCode":1}),

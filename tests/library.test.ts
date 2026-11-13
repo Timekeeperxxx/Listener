@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { Playlist, PlaylistPage, Track } from '../src/types'
 
 const api = vi.hoisted(() => ({ playlist:vi.fn(),openLogin:vi.fn(),pollLogin:vi.fn(),cancelLogin:vi.fn(),history:vi.fn(),logout:vi.fn() }))
-vi.mock('../src/lib/api',() => ({ api, desktop:true, errorMessage:(e: { message: string }) => e.message }))
+vi.mock('../src/lib/api',() => ({ api, native:true, errorMessage:(e: { message: string }) => e.message }))
 const playlist = (id:string): Playlist => ({ id, name:id, cover:'', count:0, kind:'created' })
 const page: PlaylistPage = { tracks:[],total:0,nextOffset:0,hasMore:false }
 const track: Track = { id:1,mid:'recent',mediaMid:'recent',title:'Recent',artist:'Artist',album:'Album',cover:'',duration:60,vip:false }

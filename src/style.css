@@ -518,11 +518,7 @@ button.album-credit:hover, .album-name:hover { color: var(--accent); }
 .catalog-breadcrumb button { padding: 0; color: #797982; }
 .catalog-breadcrumb button:hover { color: var(--accent); }
 .catalog-breadcrumb > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.artist-hero { display: flex; align-items: center; gap: 36px; padding: 5px 0 29px; }
-.artist-portrait { width: 190px; height: 190px; border-radius: 50%; box-shadow: 0 9px 30px #00000012; }
-.artist-portrait img { object-position: center 30%; }
-.artist-hero-copy h1, .album-hero-copy h1 { margin: 7px 0 9px; font-size: clamp(32px, 4vw, 46px); font-weight: 700; letter-spacing: -1.1px; line-height: 1.15; }
-.artist-subtitle { margin: 0; color: #8a8a93; font-size: 15px; }
+.album-hero-copy h1 { margin: 7px 0 9px; font-size: clamp(32px, 4vw, 46px); font-weight: 700; letter-spacing: -1.1px; line-height: 1.15; }
 .catalog-play-actions { display: flex; gap: 10px; margin-top: 23px; }
 .catalog-play-actions .button { min-width: 94px; padding: 10px 17px; border-radius: 9px; }
 .artist-tabs { display: flex; gap: 27px; margin: 9px 0 29px; border-bottom: 1px solid var(--line); }
@@ -568,7 +564,6 @@ main.library-receded { transform: scale(.985); opacity: .75; }
 }
 @media (max-width: 800px) {
   .catalog-album-grid, .artist-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 25px 18px; }
-  .artist-portrait { width: 150px; height: 150px; }
   .album-hero-art { width: 175px; height: 175px; }
   .catalog-search { width: 180px; }
 }
@@ -584,10 +579,7 @@ main.library-receded { transform: scale(.985); opacity: .75; }
   .catalog-heading { flex-wrap: wrap; gap: 10px; }
   .catalog-search { width: 100%; }
   .catalog-album-grid, .artist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .artist-hero { gap: 20px; }
-  .artist-portrait { width: 115px; height: 115px; }
-  .artist-hero-copy h1, .album-hero-copy h1 { font-size: 30px; }
-  .artist-subtitle { font-size: 12px; }
+  .album-hero-copy h1 { font-size: 30px; }
   .catalog-play-actions { gap: 7px; margin-top: 17px; }
   .catalog-play-actions .button { min-width: 0; padding: 8px 11px; font-size: 12px; }
   .album-hero { gap: 20px; align-items: flex-start; }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -58,6 +59,13 @@ pub struct ArtistDetail {
     pub total_albums: u64,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArtistSongOrder {
+    Popular,
+    Newest,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlbumDetail {
     pub album: CatalogAlbum,
@@ -83,11 +91,15 @@ pub struct Playlist {
     pub name: String,
     pub cover: String,
     pub count: u64,
+    #[serde(rename = "playCount", skip_serializing_if = "Option::is_none")]
+    pub play_count: Option<u64>,
     pub kind: String,
     #[serde(rename = "dirId")]
     pub dir_id: Option<u64>,
     #[serde(default)]
     pub creator: Option<String>,
+    #[serde(default, rename = "activityTime", skip_serializing_if = "Option::is_none")]
+    pub activity_time: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +109,33 @@ pub struct PlaylistPage {
     pub total: u64,
     pub next_offset: u64,
     pub has_more: bool,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub dates: HashMap<String, PlaylistTrackDate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistTrackDate {
+    pub added_at: Option<u64>,
+    pub published_on: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Chart {
+    pub playlist: Playlist,
+    pub preview: Vec<ChartSong>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChartSong {
+    pub title: String,
+    pub artist: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DesktopSongRecommendation {
+    pub title: String,
+    pub tracks: Vec<Track>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,10 +262,14 @@ impl Default for ShortcutSettings {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SavedCatalog {
     pub artists: Vec<ArtistRef>,
     pub albums: Vec<CatalogAlbum>,
+    #[serde(default, rename = "artistSavedAt", skip_serializing_if = "HashMap::is_empty")]
+    pub artist_saved_at: HashMap<String, u64>,
+    #[serde(default, rename = "albumSavedAt", skip_serializing_if = "HashMap::is_empty")]
+    pub album_saved_at: HashMap<String, u64>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
