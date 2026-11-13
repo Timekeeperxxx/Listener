@@ -2,7 +2,7 @@
 
 Listener 是一款接入 QQ 音乐的轻量播放器，支持 macOS 和 iPhone。macOS 版使用 Tauri 2、Vue 3 和 AMLL 歌词渲染。iPhone 版使用原生 SwiftUI、系统 Liquid Glass 和 AVPlayer。两端共享负责 QQ 音乐接口和本地资料库的 Rust 核心。
 
-[下载 macOS DMG 或 iPhone IPA](https://github.com/Timekeeperxxx/Listener/releases/latest) · [0.6.0 更新说明](docs/releases/0.6.0.md) · [构建 iPhone 版](#原生-iphone-项目)
+[下载 macOS DMG 或 iPhone IPA](https://github.com/Timekeeperxxx/Listener/releases/latest) · [0.6.1 更新说明](docs/releases/0.6.1.md) · [构建 iPhone 版](#原生-iphone-项目)
 
 ## 界面截图
 

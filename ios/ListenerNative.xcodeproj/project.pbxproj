@@ -227,7 +227,7 @@
 				"LISTENER_RUST_TARGET[sdk=iphonesimulator*]" = "aarch64-apple-ios-sim";
 				LISTENER_RUST_LIB = "$(PROJECT_DIR)/../src-tauri/target/ios-native-core/$(LISTENER_RUST_TARGET)/$(LISTENER_RUST_PROFILE)/liblistener_lib.a";
 				PRODUCT_BUNDLE_IDENTIFIER = com.listener.music;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.6.1;
 				CURRENT_PROJECT_VERSION = 1;
 				LISTENER_RUST_PROFILE = release;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -386,7 +386,7 @@
 				"LISTENER_RUST_TARGET[sdk=iphonesimulator*]" = "aarch64-apple-ios-sim";
 				LISTENER_RUST_LIB = "$(PROJECT_DIR)/../src-tauri/target/ios-native-core/$(LISTENER_RUST_TARGET)/$(LISTENER_RUST_PROFILE)/liblistener_lib.a";
 				PRODUCT_BUNDLE_IDENTIFIER = com.listener.music;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.6.1;
 				CURRENT_PROJECT_VERSION = 1;
 				LISTENER_RUST_PROFILE = debug;
 				LD_RUNPATH_SEARCH_PATHS = (

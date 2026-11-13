@@ -2,10 +2,10 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-// Export the generated artwork into the macOS icon template. The platform mask
-// keeps the transparent padding clean at every size; the artwork stays intact.
+// Use the default iOS artwork as-is inside the macOS tile, with transparent
+// padding for the Dock and Finder.
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-let sourceURL = root.appendingPathComponent("assets/app-icon-source.png")
+let sourceURL = root.appendingPathComponent("ios/ListenerNative/Assets.xcassets/AppIcon.appiconset/Light.png")
 let source = CGImageSourceCreateWithURL(sourceURL as CFURL, nil)!
 let artwork = CGImageSourceCreateImageAtIndex(source, 0, nil)!
 let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -26,10 +26,8 @@ let canvas = context(1024)
 let tile = CGRect(x: 104, y: 104, width: 816, height: 816)
 canvas.addPath(CGPath(roundedRect: tile, cornerWidth: 176, cornerHeight: 176, transform: nil))
 canvas.clip()
-canvas.setFillColor(CGColor(red: 0.96, green: 0.95, blue: 0.97, alpha: 1))
-canvas.fill(tile)
 canvas.interpolationQuality = .high
-canvas.draw(artwork, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
+canvas.draw(artwork, in: tile)
 let icon = canvas.makeImage()!
 writePNG(icon, to: root.appendingPathComponent("assets/app-icon.png"))
 

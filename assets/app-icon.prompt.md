@@ -1,10 +1,12 @@
 # Listener 声波图标
 
-用户提供的六条竖线声波标志作为编辑参考。使用内置 imagegen 生成与修整，不使用 CLI 或独立图片 API。最终图稿为 `app-icon-source.png`，应用图标为 `app-icon.png`。
+Mac 图标和网页页签使用 [iPhone 默认图标](../ios/ListenerNative/Assets.xcassets/AppIcon.appiconset/Light.png) 的六条蓝色声波。Mac 导出仅加入圆角遮罩和透明留白。更新 iPhone 图稿后，运行 `swift scripts/generate-icons.swift` 重新导出 Mac 的 PNG 和 ICNS。
+
+## 早期图稿
+
+`app-icon-source.png` 是早期由内置 imagegen 生成的图稿，作为设计记录保留。
 
 保留六条线的数量、排列和长短节奏；以蓝紫色珐琅与玻璃光泽、珍珠白底增加立体质感。最终导出使用 macOS 圆角遮罩、透明留白和不透明内底，避免透明生成区域的零散像素进入图标。原始图稿未改动。
-
-重新导出：在项目根目录执行 `swift scripts/generate-icons.swift`。该脚本生成 1024px PNG、32/64/128/256px PNG 和含 Retina 尺寸的 ICNS。浏览器页签与原生应用使用同一图案。浅色和深色背景的多尺寸检查图保存在 `artifacts/app-icon-preview.png`。
 
 ## 生成提示
 
