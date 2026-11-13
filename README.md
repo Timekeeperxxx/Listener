@@ -135,3 +135,5 @@ QQ 接口错误、会话失效和权益不足会明确显示，不以演示数�
 AGPL-3.0-only，与 [AMLL](https://github.com/Steve-xmh/applemusic-like-lyrics) 一致。字体和其他依赖说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 协议接入参考 [QQMusicApi](https://github.com/l-1124/QQMusicApi) 和 QQ 音乐实际响应，写请求格式参考 [qmweb-sign](https://github.com/jixunmoe/qmweb-sign)。框架能力见 [Tauri Updater](https://v2.tauri.app/plugin/updater/)、[系统托盘](https://v2.tauri.app/learn/system-tray/) 和 [全局快捷键](https://v2.tauri.app/plugin/global-shortcut/)。
+
+开发小记：本项目的界面设计和代码开发有大量 AI 参与，测试和文档整理也有 AI 协助。
